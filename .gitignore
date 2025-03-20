@@ -132,3 +132,6 @@ dist
 
 # jest
 test-report.xml
+
+# IDE Jetbrains
+.idea/

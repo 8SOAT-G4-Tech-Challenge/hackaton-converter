@@ -1,4 +1,4 @@
-import { CartRepositoryImpl } from '@src/adapter/driven/infra';
+import { CartRepositoryImpl } from '@src/adapter/driven/external';
 import { prisma } from '@src/adapter/driven/infra/lib/prisma';
 import { DataNotFoundException } from '@src/core/application/exceptions/dataNotFound';
 import logger from '@src/core/common/logger';

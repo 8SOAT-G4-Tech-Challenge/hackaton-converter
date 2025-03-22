@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { ProductRepositoryImpl } from '@src/adapter/driven/infra';
+import { ProductRepositoryImpl } from '@src/adapter/driven/external';
 import { prisma } from '@src/adapter/driven/infra/lib/prisma';
 import { DataNotFoundException } from '@src/core/application/exceptions/dataNotFound';
 import { InvalidProductException } from '@src/core/application/exceptions/invalidProductException';

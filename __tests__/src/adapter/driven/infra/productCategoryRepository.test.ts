@@ -1,4 +1,4 @@
-import { ProductCategoryRepositoryImpl } from '@src/adapter/driven/infra';
+import { ProductCategoryRepositoryImpl } from '@src/adapter/driven/external';
 import { prisma } from '@src/adapter/driven/infra/lib/prisma';
 import { ProductCategoryMockBuilder } from '@tests/mocks/product-category.mock-builder';
 import { ProductMockBuilder } from '@tests/mocks/product.mock-builder';

@@ -1,4 +1,4 @@
-import { ProductImageRepositoryImpl } from '@src/adapter/driven/infra';
+import { ProductImageRepositoryImpl } from '@src/adapter/driven/external';
 import { prisma } from '@src/adapter/driven/infra/lib/prisma';
 import { DataNotFoundException } from '@src/core/application/exceptions/dataNotFound';
 import { ProductImageMockBuilder } from '@tests/mocks/product-image.mock-builder';

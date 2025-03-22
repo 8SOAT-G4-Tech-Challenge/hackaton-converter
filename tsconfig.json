@@ -14,7 +14,6 @@
 			"@services/*": ["./src/core/application/services/*"],
 			"@ports/*": ["./src/core/application/ports/*"],
 			"@application/*": ["./src/core/application/*"],
-			"@domain/*": ["./src/core/domain/*"],
 			"@common/*": ["./src/core/common/*"],
 			"@tests/*": ["./__tests__/*"]
 		},
@@ -25,7 +24,7 @@
 		"forceConsistentCasingInFileNames": true,
 		"strict": true,
 		"skipLibCheck": true,
-		"types": ["jest", "node", "@prisma/client"],
+		"types": ["jest", "node"],
 		"useUnknownInCatchVariables": false
 	},
 	"include": ["src/**/*", "__tests__/**/*", "mocks"],

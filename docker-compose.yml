@@ -2,19 +2,19 @@ version: '3.8'
 
 services:
   postgres:
-    container_name: tech-challenger-pg
+    container_name: hackaton-pg
     image: postgres
     ports:
       - '5432:5432'
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: docker
-      POSTGRES_DB: tech-challenger
+      POSTGRES_DB: hackaton
       PGDATA: '/var/lib/postgresql/data'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - tech-challenger-network
+      - hackaton-network
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s
@@ -22,7 +22,7 @@ services:
       retries: 5
 
   app:
-    container_name: tech-challenger-api
+    container_name: hackaton-converter
     build:
       context: .
       dockerfile: Dockerfile
@@ -34,16 +34,16 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: 'postgresql://postgres:docker@postgres:5432/tech-challenger'
+      DATABASE_URL: 'postgresql://postgres:docker@postgres:5432/hackaton'
       API_PORT: 3000
     networks:
-      - tech-challenger-network
-      - tech-challenge-global
+      - hackaton-network
+      - hackaton-global
 
 networks:
-  tech-challenger-network:
+  hackaton-network:
     driver: bridge
-  tech-challenge-global:
+  hackaton-global:
     external: true
 
 volumes:

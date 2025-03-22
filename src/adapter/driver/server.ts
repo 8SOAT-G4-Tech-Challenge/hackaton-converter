@@ -7,34 +7,16 @@ import { errorHandler } from '@driver/errorHandler';
 import fastifyCors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import fastifyMultipart from '@fastify/multipart';
-import fastifySwagger from '@fastify/swagger';
-import fastifySwaggerUI from '@fastify/swagger-ui';
 import { routes } from '@routes/index';
+import cron from 'node-cron'
+import { SimpleQueueService } from '@services/simpleQueueService'
+import { ConverterService } from '@services/converterService'
+import { AwsSimpleQueueImpl } from '@src/adapter/driven/external/awsSimpleQueueImpl';
 
 export const app = fastify();
 
 app.register(fastifyCors, {
 	origin: '*',
-});
-
-app.register(fastifySwagger, {
-	openapi: {
-		openapi: '3.0.1',
-	},
-	swagger: {
-		consumes: ['application/json', 'multipart/form-data'],
-		produces: ['application/json', 'multipart/form-data'],
-		info: {
-			title: 'FIAP - Tech Challenge',
-			description:
-				'Especificações da API para o back-end da aplicação de restaurante FIAP Tech Challenge.',
-			version: '1.0.0',
-		},
-	},
-});
-
-app.register(fastifySwaggerUI, {
-	routePrefix: '/docs',
 });
 
 app.register(fastifyMultipart);
@@ -58,7 +40,7 @@ app.register(helmet, {
 	noSniff: true,
 });
 
-app.register(routes, { prefix: '/orders' });
+app.register(routes, { prefix: '/converter' });
 
 app.setErrorHandler(errorHandler);
 
@@ -70,7 +52,16 @@ async function run() {
 		host: '0.0.0.0',
 	});
 
-	logger.info('Microservice/Order running at http://localhost:3000');
+	const job = cron.schedule('* * * * *', () => {
+		const awsSimpleQueueImpl = new AwsSimpleQueueImpl();
+		const simpleQueueService = new SimpleQueueService(awsSimpleQueueImpl);
+		const converterService = new ConverterService(simpleQueueService);
+		converterService.convertVideos();
+	});
+
+	job.start();
+
+	logger.info('Microservice/Converter running at http://localhost:3000');
 }
 
 run();

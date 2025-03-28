@@ -1,5 +1,5 @@
-import { AwsSimpleQueue } from '@src/core/application/ports/output/awsSimpleQueue';
-import { SQSClient, ReceiveMessageCommand } from '@aws-sdk/client-sqs';
+import { AwsSimpleQueue } from '@ports/output/awsSimpleQueue';
+import { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } from '@aws-sdk/client-sqs';
 import logger from '@common/logger';
 
 export class AwsSimpleQueueImpl implements AwsSimpleQueue {
@@ -16,5 +16,17 @@ export class AwsSimpleQueueImpl implements AwsSimpleQueue {
         };
         const command = new ReceiveMessageCommand(input);
         return client.send(command);
+    }
+
+    async deleteMessage(messageId: string, receiptHandle: string): Promise<void> {
+        logger.info(`Deleting message ${messageId} from SQS: ${receiptHandle}`);
+        const client = new SQSClient({region: process.env.AWS_SQS_REGION});
+        const input = {
+            QueueUrl: process.env.AWS_SQS_URL,
+            ReceiptHandle: receiptHandle
+        };
+        const command = new DeleteMessageCommand(input);
+        await client.send(command);
+        logger.info(`Message ${messageId} deleted successfully`);
     }
 }

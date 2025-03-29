@@ -6,7 +6,7 @@ export class AwsSimpleQueueImpl implements AwsSimpleQueue {
     
     async receiveMessages(): Promise<any> {
         logger.info(`Receive messages SQS: ${process.env.AWS_SQS_URL}`);
-        const client = new SQSClient({region: process.env.AWS_SQS_REGION});
+        const client = new SQSClient({region: process.env.AWS_REGION});
         const input = {
             QueueUrl: process.env.AWS_SQS_URL,
             MessageAttributeNames: ["ALL"],

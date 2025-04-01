@@ -1,17 +1,19 @@
 import 'dotenv/config';
 
 import fastify from 'fastify';
+import cron from 'node-cron';
 
 import logger from '@common/logger';
+import { AwsSimpleQueueImpl } from '@driven/external/awsSimpleQueueImpl';
+import { AwsSimpleStorageImpl } from '@driven/external/awsSimpleStorageImpl';
 import { errorHandler } from '@driver/errorHandler';
 import fastifyCors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import fastifyMultipart from '@fastify/multipart';
 import { routes } from '@routes/index';
-import cron from 'node-cron'
-import { SimpleQueueService } from '@services/simpleQueueService'
-import { ConverterService } from '@services/converterService'
-import { AwsSimpleQueueImpl } from '@src/adapter/driven/external/awsSimpleQueueImpl';
+import { ConverterService } from '@services/converterService';
+import { SimpleQueueService } from '@services/simpleQueueService';
+import { SimpleStorageService } from '@services/simpleStorageService';
 
 export const app = fastify();
 
@@ -54,8 +56,10 @@ async function run() {
 
 	const job = cron.schedule('* * * * *', () => {
 		const awsSimpleQueueImpl = new AwsSimpleQueueImpl();
+		const awsSimpleStorageImpl = new AwsSimpleStorageImpl();
 		const simpleQueueService = new SimpleQueueService(awsSimpleQueueImpl);
-		const converterService = new ConverterService(simpleQueueService);
+		const simpleStorageService = new SimpleStorageService(awsSimpleStorageImpl);
+		const converterService = new ConverterService(simpleQueueService, simpleStorageService);
 		converterService.convertVideos();
 	});
 

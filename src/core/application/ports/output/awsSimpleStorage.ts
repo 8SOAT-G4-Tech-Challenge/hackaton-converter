@@ -1,6 +1,4 @@
-
-
 export interface AwsSimpleStorage {
-    getObjects():Promise<any>;
-    createObject(): Promise<any>;
+    getObject(key: string):Promise<any>;
+    uploadFile(userId: string, key: string, file:any): Promise<any>;
 }

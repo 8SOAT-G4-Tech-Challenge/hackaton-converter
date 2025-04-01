@@ -1,23 +1,23 @@
-
 export class ConverterInfoDto {
-    videoName?: string; 
-    storageUrl?: string;
-    userId?: string;
+	fileName?: string;
 
-    constructor(converterInfoObject: any) {
-        if (converterInfoObject) {
-            if (converterInfoObject.videoName) {
-                this.videoName = converterInfoObject.videoName;
-            }
+	fileStorageKey?: string;
 
-            if (converterInfoObject.storageUrl) {
-                this.storageUrl = converterInfoObject.storageUrl;
-            }
+	userId?: string;
 
-            if (converterInfoObject.userId){
-                this.userId = converterInfoObject.userId;
-            }
-        }
-    }
+	constructor(converterInfoObject: any) {
+		if (converterInfoObject) {
+			if (converterInfoObject.fileName) {
+				this.fileName = converterInfoObject.fileName;
+			}
 
+			if (converterInfoObject.fileStorageKey) {
+				this.fileStorageKey = converterInfoObject.fileStorageKey;
+			}
+
+			if (converterInfoObject.userId) {
+				this.userId = converterInfoObject.userId;
+			}
+		}
+	}
 }

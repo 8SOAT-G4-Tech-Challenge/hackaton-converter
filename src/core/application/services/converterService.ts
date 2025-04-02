@@ -1,3 +1,4 @@
+import archiver from 'archiver';
 import ffmpeg from 'fluent-ffmpeg';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -8,6 +9,7 @@ import { ConverterInfoDto } from '@application/dtos/converterInfoDto';
 import { MessageSqsDto } from '@application/dtos/messageSqsDto';
 import logger from '@common/logger';
 import ffmpegPath from '@ffmpeg-installer/ffmpeg';
+import { HackatonService } from '@services/hackatonService';
 import { SimpleQueueService } from '@services/simpleQueueService';
 import { SimpleStorageService } from '@services/simpleStorageService';
 
@@ -16,9 +18,15 @@ export class ConverterService {
 
 	private readonly simpleStorageService;
 
-	constructor(simpleQueueService: SimpleQueueService, simpleStoageService: SimpleStorageService) {
+	private readonly hackatonService;
+
+	constructor(
+		simpleQueueService: SimpleQueueService,
+		simpleStoageService: SimpleStorageService,
+		hackatonService: HackatonService) {
 		this.simpleQueueService = simpleQueueService;
 		this.simpleStorageService = simpleStoageService;
+		this.hackatonService = hackatonService;
 		ffmpeg.setFfmpegPath(ffmpegPath.path);
 	}
 
@@ -26,7 +34,7 @@ export class ConverterService {
 		try {
 			logger.info('[CONVERTER SERVICE] Starting videos conversion');
 			const messages: MessageSqsDto[] = await this.simpleQueueService.getMessages();
-			logger.info('Messages', messages);
+			logger.info(`[CONVERTER SERVICE] Total messages found: ${messages.length}`);
 			messages.forEach((message) => {
 				this.convertVideoToImages(message.body);
 			});
@@ -36,7 +44,7 @@ export class ConverterService {
 	}
 
 	private async convertVideoToImages(converterInfoDto?: ConverterInfoDto) {
-		const stream = new PassThrough();
+		const outputStream = new PassThrough();
 		logger.info(`[CONVERTER SERVICE] Starting video ${JSON.stringify(converterInfoDto)} conversion`);
 
 		if (!converterInfoDto ||
@@ -49,14 +57,15 @@ export class ConverterService {
 		const videoInfo = await this.simpleStorageService.getVideo(
 			converterInfoDto.fileStorageKey);
 
+		const keyArray = converterInfoDto.fileStorageKey.split('/');
 		const videoPath = await this.saveStreamToTempFile(
 			videoInfo.content,
-			converterInfoDto.fileStorageKey);
+			keyArray[keyArray.length - 1]);
 
 		ffmpeg(videoPath)
 			.inputFormat('mp4')
 			.outputFormat('image2pipe')
-			.output(stream)
+			.output(outputStream)
 			.outputOptions([
 				'-vf', 'fps=1/20',
 				'-q:v', '2',
@@ -69,26 +78,17 @@ export class ConverterService {
 			})
 			.run();
 
-		const dateStringKeyImages = this.generateDateStringKey();
-		let contadorImagem = 0;
-
-		stream.on('data', async (image) => {
-			contadorImagem += 1;
-			const imageName = `${converterInfoDto.fileName}_${dateStringKeyImages}_img${contadorImagem}.png`;
-			try {
-				logger.info(`[CONVERTER SERVICE] Storing image ${imageName}`);
-				await this.simpleStorageService.uploadImage(
-					converterInfoDto.userId,
-					imageName,
-					image);
-			} catch (error) {
-				logger.error(error, `[CONVERTER SERVICE] Error storing image ${imageName}`);
-			}
-		});
-
-		stream.on('end', () => {
-			logger.info('[CONVERTER SERVICE] All images were uploaded successfully.');
-		});
+		const fileNameValues = converterInfoDto.fileName.split('.');
+		let fileCompressedKey = `${fileNameValues[0].toLowerCase()}_${this.generateDateStringKey()}`;
+		const fileZipStream = this.createZipStream(outputStream, fileCompressedKey);
+		fileCompressedKey += '.zip';
+		await this.saveStreamToTempFile(fileZipStream, fileCompressedKey);
+		const fileContent = fs.readFileSync(path.join(this.getTempDir(), fileCompressedKey));
+		logger.info(`[CONVERTER SERVICE] Storing compressed images ${fileCompressedKey}`);
+		await this.simpleStorageService.uploadCompressedFile(
+			converterInfoDto.userId,
+			fileCompressedKey,
+			fileContent);
 	}
 
 	private generateDateStringKey(): string {
@@ -103,14 +103,13 @@ export class ConverterService {
 
 	private saveStreamToTempFile(stream: Readable, key: string): Promise<string> {
 		return new Promise((resolve, reject) => {
-			const tempDir = `${os.tmpdir()}/hackaton-converter`;
+			const tempDir = this.getTempDir();
 
 			if (!fs.existsSync(tempDir)) {
 				fs.mkdirSync(tempDir, { recursive: true });
 			}
 
-			const keyArray = key.split('/');
-			const tempFilePath = path.join(tempDir, keyArray[keyArray.length - 1]);
+			const tempFilePath = path.join(tempDir, key);
 			const writeStream = fs.createWriteStream(tempFilePath);
 
 			stream.pipe(writeStream);
@@ -124,5 +123,36 @@ export class ConverterService {
 				reject(error);
 			});
 		});
+	}
+
+	private getTempDir() {
+		return `${os.tmpdir()}/hackaton-converter`;
+	}
+
+	private createZipStream(imagesStream: Readable, fileName: string): Readable {
+		const zipStream = new PassThrough();
+
+		const archive = archiver('zip', {
+			zlib: { level: 9 },
+		});
+
+		archive.on('error', (err) => {
+			console.error('Erro ao criar o ZIP:', err);
+		});
+
+		archive.pipe(zipStream);
+
+		let imageCount = 0;
+		imagesStream.on('data', (chunk) => {
+			const imageName = `${fileName}_img${imageCount}.png`;
+			archive.append(chunk, { name: imageName });
+			imageCount += 1;
+		});
+
+		imagesStream.on('end', () => {
+			archive.finalize();
+		});
+
+		return zipStream;
 	}
 }

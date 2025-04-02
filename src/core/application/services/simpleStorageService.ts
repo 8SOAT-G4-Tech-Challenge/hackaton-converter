@@ -10,12 +10,12 @@ export class SimpleStorageService {
 	}
 
 	async getVideo(key: string) {
-		logger.info('[CONVERTER SERVICE] Getting video');
+		logger.info(`[CONVERTER SERVICE] Getting video ${key}`);
 		return this.awsSimpleStorage.getObject(key);
 	}
 
-	async uploadImage(userId: string, key: string, file: any) {
-		logger.info('[CONVERTER SERVICE] Uploading image');
+	async uploadCompressedFile(userId: string, key: string, file: any) {
+		logger.info(`[CONVERTER SERVICE] Uploading compressed image file ${key}`);
 		this.awsSimpleStorage.uploadFile(userId, key, file);
 	}
 }

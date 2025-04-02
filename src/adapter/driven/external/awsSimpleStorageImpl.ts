@@ -4,7 +4,6 @@ import { AwsSimpleStorage } from '@ports/output/awsSimpleStorage';
 
 export class AwsSimpleStorageImpl implements AwsSimpleStorage {
 	async getObject(key: string) {
-		logger.info(`[CONVERTER SERVICE] Getting object ${key}`);
 		const bucket = process.env.AWS_BUCKET;
 		const client = new S3Client({ region: process.env.AWS_REGION });
 		const input = {
@@ -24,13 +23,13 @@ export class AwsSimpleStorageImpl implements AwsSimpleStorage {
 	}
 
 	async uploadFile(userId: string, key: string, file: any) {
-		logger.info(`[CONVERTER SERVICE] Uploading file ${key}`);
 		const client = new S3Client({ region: process.env.AWS_REGION });
 		const bucket = process.env.AWS_BUCKET;
 		const input = {
 			Bucket: bucket,
 			Key: `${userId}/images/${key}`,
-			Body: file
+			Body: file,
+			ContentType: 'application/zip'
 		};
 		logger.info(`[CONVERTER SERVICE] Uploading file ${key} to AWS bucket ${bucket}: ${key}`);
 		const command = new PutObjectCommand(input);

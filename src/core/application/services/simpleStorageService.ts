@@ -1,4 +1,5 @@
-// import { MessageSqsDto } from '@application/dtos/messageSqsDto';
+import * as fs from 'fs';
+
 import logger from '@common/logger';
 import { AwsSimpleStorage } from '@ports/output/awsSimpleStorage';
 
@@ -9,13 +10,20 @@ export class SimpleStorageService {
 		this.awsSimpleStorage = awsSimpleStorage;
 	}
 
-	async getVideo(key: string) {
+	async getVideo(key: string): Promise<any> {
 		logger.info(`[CONVERTER SERVICE] Getting video ${key}`);
 		return this.awsSimpleStorage.getObject(key);
 	}
 
-	async uploadCompressedFile(userId: string, key: string, file: any) {
-		logger.info(`[CONVERTER SERVICE] Uploading compressed image file ${key}`);
-		this.awsSimpleStorage.uploadFile(userId, key, file);
+	async uploadCompressedFile(userId: string, filePath: any): Promise<string> {
+		logger.info(`[CONVERTER SERVICE] Uploading compressed image file ${filePath}`);
+		const fileContent = fs.readFileSync(filePath);
+		const filePathValues = filePath.split('\\');
+		const compressedFileKey = filePathValues[filePathValues.length - 1];
+		await this.awsSimpleStorage.uploadFile(
+			userId,
+			compressedFileKey,
+			fileContent);
+		return compressedFileKey;
 	}
 }

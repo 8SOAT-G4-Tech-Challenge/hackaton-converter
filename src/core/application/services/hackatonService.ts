@@ -10,22 +10,31 @@ export class HackatonService {
 		this.hackatonApi = hackatonApi;
 	}
 
-	async sendStatusStartedConvertion(userId: string) {
+	async sendStatusStartedConvertion(userId: string): Promise<void> {
 		logger.info(`Sending status of conversation started to user ${userId}`);
 		const convertionNotificationDto = new ConvertionNotificationDto(
 			ConvertionStatusEnum.started,
 			userId
 		);
-		this.hackatonApi.sendNotification(convertionNotificationDto);
+		await this.hackatonApi.sendNotification(convertionNotificationDto);
 	}
 
-	async sendStatusFinishedConvertion(images: string[], userId: string) {
-		logger.info(`Sending status of conversation finished to user ${userId} with ${images.length} images`);
+	async sendStatusErrorConvertion(userId: string): Promise<void> {
+		logger.info(`Sending status of conversation error to user ${userId}`);
+		const convertionNotificationDto = new ConvertionNotificationDto(
+			ConvertionStatusEnum.error,
+			userId
+		);
+		await this.hackatonApi.sendNotification(convertionNotificationDto);
+	}
+
+	async sendStatusFinishedConvertion(compressedFileKey: string, userId: string): Promise<void> {
+		logger.info(`Sending status of conversation finished to user ${userId} with ${compressedFileKey}`);
 		const convertionNotificationDto = new ConvertionNotificationDto(
 			ConvertionStatusEnum.finished,
 			userId,
-			images
+			compressedFileKey
 		);
-		this.hackatonApi.sendNotification(convertionNotificationDto);
+		await this.hackatonApi.sendNotification(convertionNotificationDto);
 	}
 }

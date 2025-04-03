@@ -3,13 +3,13 @@ import { ConvertionStatusEnum } from '@application/enumerations/convertionStatus
 export class ConvertionNotificationDto {
 	status: ConvertionStatusEnum;
 
-	images?: string[];
+	compressedFileKey?: string;
 
 	userId: string;
 
-	constructor(status: ConvertionStatusEnum, userId: string, images: string[] = []) {
+	constructor(status: ConvertionStatusEnum, userId: string, compressedFileKey: string = '') {
 		this.status = status;
-		this.images = images;
+		this.compressedFileKey = compressedFileKey;
 		this.userId = userId;
 	}
 }

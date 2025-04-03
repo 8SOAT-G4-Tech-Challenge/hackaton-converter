@@ -3,7 +3,7 @@ import logger from '@common/logger';
 import { AwsSimpleStorage } from '@ports/output/awsSimpleStorage';
 
 export class AwsSimpleStorageImpl implements AwsSimpleStorage {
-	async getObject(key: string) {
+	async getObject(key: string): Promise<any> {
 		const bucket = process.env.AWS_BUCKET;
 		const client = new S3Client({ region: process.env.AWS_REGION });
 		const input = {
@@ -22,7 +22,7 @@ export class AwsSimpleStorageImpl implements AwsSimpleStorage {
 		};
 	}
 
-	async uploadFile(userId: string, key: string, file: any) {
+	async uploadFile(userId: string, key: string, file: any): Promise<void> {
 		const client = new S3Client({ region: process.env.AWS_REGION });
 		const bucket = process.env.AWS_BUCKET;
 		const input = {
@@ -33,12 +33,7 @@ export class AwsSimpleStorageImpl implements AwsSimpleStorage {
 		};
 		logger.info(`[CONVERTER SERVICE] Uploading file ${key} to AWS bucket ${bucket}: ${key}`);
 		const command = new PutObjectCommand(input);
-		const response = await client.send(command);
+		await client.send(command);
 		logger.info(`[CONVERTER SERVICE] Successfully uploaded file ${key}`);
-		return {
-			key: file.key,
-			etag: response?.ETag,
-			versionId: response?.VersionId
-		};
 	}
 }

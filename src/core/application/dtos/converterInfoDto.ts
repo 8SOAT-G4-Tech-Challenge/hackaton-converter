@@ -1,23 +1,13 @@
 export class ConverterInfoDto {
-	fileName?: string;
+	fileName: string;
 
-	fileStorageKey?: string;
+	fileStorageKey: string;
 
-	userId?: string;
+	userId: string;
 
 	constructor(converterInfoObject: any) {
-		if (converterInfoObject) {
-			if (converterInfoObject.fileName) {
-				this.fileName = converterInfoObject.fileName;
-			}
-
-			if (converterInfoObject.fileStorageKey) {
-				this.fileStorageKey = converterInfoObject.fileStorageKey;
-			}
-
-			if (converterInfoObject.userId) {
-				this.userId = converterInfoObject.userId;
-			}
-		}
+		this.fileName = converterInfoObject.fileName;
+		this.fileStorageKey = converterInfoObject.fileStorageKey;
+		this.userId = converterInfoObject.userId;
 	}
 }

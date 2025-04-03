@@ -18,4 +18,8 @@ export class SimpleQueueService {
 		}
 		throw new Error('[CONVERTER SERVICE] Error when searching messages. Null or empty response.');
 	}
+
+	async deleteMenssage(messageId: string, receiptHandle: string): Promise<void> {
+		return this.awsSimpleQueue.deleteMessage(messageId, receiptHandle);
+	}
 }

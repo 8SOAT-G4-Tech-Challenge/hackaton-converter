@@ -3,7 +3,7 @@ import logger from '@common/logger';
 import { AwsSimpleQueue } from '@ports/output/awsSimpleQueue';
 
 export class AwsSimpleQueueImpl implements AwsSimpleQueue {
-	async receiveMessages() {
+	async receiveMessages(): Promise<any> {
 		logger.info(`[CONVERTER SERVICE] Receive messages SQS: ${process.env.AWS_SQS_URL}`);
 		const client = new SQSClient({ region: process.env.AWS_REGION });
 		const input = {
@@ -17,7 +17,7 @@ export class AwsSimpleQueueImpl implements AwsSimpleQueue {
 		return client.send(command);
 	}
 
-	async deleteMessage(messageId: string, receiptHandle: string) {
+	async deleteMessage(messageId: string, receiptHandle: string): Promise<void> {
 		logger.info(`[CONVERTER SERVICE] Deleting message ${messageId} from SQS: ${receiptHandle}`);
 		const client = new SQSClient({ region: process.env.AWS_SQS_REGION });
 		const input = {

@@ -1,10 +1,16 @@
-import { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } from '@aws-sdk/client-sqs';
+import {
+	SQSClient,
+	ReceiveMessageCommand,
+	DeleteMessageCommand,
+} from '@aws-sdk/client-sqs';
 import logger from '@common/logger';
 import { AwsSimpleQueue } from '@ports/output/awsSimpleQueue';
 
 export class AwsSimpleQueueImpl implements AwsSimpleQueue {
 	async receiveMessages(): Promise<any> {
-		logger.info(`[CONVERTER SERVICE] Receive messages SQS: ${process.env.AWS_SQS_URL}`);
+		logger.info(
+			`[CONVERTER SERVICE] Receive messages SQS: ${process.env.AWS_SQS_URL}`
+		);
 		const client = new SQSClient({ region: process.env.AWS_REGION });
 		const input = {
 			QueueUrl: process.env.AWS_SQS_URL,
@@ -18,14 +24,18 @@ export class AwsSimpleQueueImpl implements AwsSimpleQueue {
 	}
 
 	async deleteMessage(messageId: string, receiptHandle: string): Promise<void> {
-		logger.info(`[CONVERTER SERVICE] Deleting message ${messageId} from SQS: ${receiptHandle}`);
+		logger.info(
+			`[CONVERTER SERVICE] Deleting message ${messageId} from SQS: ${receiptHandle}`
+		);
 		const client = new SQSClient({ region: process.env.AWS_SQS_REGION });
 		const input = {
 			QueueUrl: process.env.AWS_SQS_URL,
-			ReceiptHandle: receiptHandle
+			ReceiptHandle: receiptHandle,
 		};
 		const command = new DeleteMessageCommand(input);
 		await client.send(command);
-		logger.info(`[CONVERTER SERVICE] Message ${messageId} deleted successfully`);
+		logger.info(
+			`[CONVERTER SERVICE] Message ${messageId} deleted successfully`
+		);
 	}
 }

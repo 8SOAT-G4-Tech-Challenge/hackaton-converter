@@ -1,4 +1,8 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import {
+	S3Client,
+	PutObjectCommand,
+	GetObjectCommand,
+} from '@aws-sdk/client-s3';
 import logger from '@common/logger';
 import { AwsSimpleStorage } from '@ports/output/awsSimpleStorage';
 
@@ -10,7 +14,9 @@ export class AwsSimpleStorageImpl implements AwsSimpleStorage {
 			Bucket: bucket,
 			Key: key,
 		};
-		logger.info(`[CONVERTER SERVICE] Getting object ${key} from AWS bucket ${bucket}`);
+		logger.info(
+			`[CONVERTER SERVICE] Getting object ${key} from AWS bucket ${bucket}`
+		);
 		const command = new GetObjectCommand(input);
 		const response = await client.send(command);
 		logger.info(`[CONVERTER SERVICE] Successfully obtained object ${key}`);
@@ -18,7 +24,7 @@ export class AwsSimpleStorageImpl implements AwsSimpleStorage {
 			key,
 			content: response?.Body,
 			eTag: response?.ETag,
-			versionId: response?.VersionId
+			versionId: response?.VersionId,
 		};
 	}
 
@@ -29,9 +35,11 @@ export class AwsSimpleStorageImpl implements AwsSimpleStorage {
 			Bucket: bucket,
 			Key: `${userId}/images/${key}`,
 			Body: file,
-			ContentType: 'application/zip'
+			ContentType: 'application/zip',
 		};
-		logger.info(`[CONVERTER SERVICE] Uploading file ${key} to AWS bucket ${bucket}: ${key}`);
+		logger.info(
+			`[CONVERTER SERVICE] Uploading file ${key} to AWS bucket ${bucket}: ${key}`
+		);
 		const command = new PutObjectCommand(input);
 		await client.send(command);
 		logger.info(`[CONVERTER SERVICE] Successfully uploaded file ${key}`);

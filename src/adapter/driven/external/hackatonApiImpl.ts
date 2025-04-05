@@ -11,14 +11,21 @@ export class HackatonApiImpl implements HackatonApi {
 		axiosRetry(axios, {
 			retries: 3,
 			retryDelay: axiosRetry.exponentialDelay,
-			retryCondition: (error) => error.status !== StatusCodes.NO_CONTENT || axiosRetry.isNetworkError(error) || error.code === 'ECONNREFUSED'
+			retryCondition: (error) =>
+				error.status !== StatusCodes.NO_CONTENT ||
+				axiosRetry.isNetworkError(error) ||
+				error.code === 'ECONNREFUSED',
 		});
 	}
 
-	async sendNotification(convertionNotificationDto: ConvertionNotificationDto): Promise<void> {
+	async sendNotification(
+		convertionNotificationDto: ConvertionNotificationDto
+	): Promise<void> {
 		try {
 			const url = `${process.env.HACKATON_API_BASE_URL}/notifications`;
-			logger.info(`Sending status of convertion ${convertionNotificationDto.status} to user ${convertionNotificationDto.userId} - path: ${url}`);
+			logger.info(
+				`Sending status of convertion ${convertionNotificationDto.status} to user ${convertionNotificationDto.userId} - path: ${url}`
+			);
 			// await axios.post(
 			// 	url,
 			// 	convertionNotificationDto

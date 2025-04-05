@@ -1,6 +1,8 @@
-export enum ConvertionStatusEnum {
-    started,
-    pending,
-    finished,
-    error
-}
+export const ConvertionStatusEnum = {
+	started: 'started',
+	pending: 'pending',
+	finished: 'finished',
+	error: 'error',
+};
+
+export type ConvertionStatusEnumType = keyof typeof ConvertionStatusEnum;

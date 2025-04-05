@@ -5,6 +5,14 @@ on:
     paths:
       - 'src/**'
     branches: ['develop']
+  workflow_dispatch:
+    inputs:
+      deployType:
+        description: 'Deploy type'
+        type: choice
+        options:
+          - deploy
+        required: true
 
 jobs:
   docker-api:

@@ -22,7 +22,7 @@ export class ConverterService {
 	constructor(
 		simpleQueueService: SimpleQueueService,
 		simpleStoageService: SimpleStorageService,
-		hackatonService: HackatonService
+		hackatonService: HackatonService,
 	) {
 		this.simpleQueueService = simpleQueueService;
 		this.simpleStorageService = simpleStoageService;
@@ -36,7 +36,7 @@ export class ConverterService {
 			const messages: MessageSqsDto[] =
 				await this.simpleQueueService.getMessages();
 			logger.info(
-				`[CONVERTER SERVICE] Total messages found: ${messages.length}`
+				`[CONVERTER SERVICE] Total messages found: ${messages.length}`,
 			);
 			messages.forEach((message: MessageSqsDto) => {
 				this.convertVideoToImages(message);
@@ -51,8 +51,8 @@ export class ConverterService {
 		try {
 			logger.info(
 				`[CONVERTER SERVICE] Starting video ${JSON.stringify(
-					converterInfoDto
-				)} conversion`
+					converterInfoDto,
+				)} conversion`,
 			);
 
 			if (
@@ -62,19 +62,19 @@ export class ConverterService {
 				!converterInfoDto.fileStorageKey
 			) {
 				throw new Error(
-					'Error converting video to images. Video information is null or empty.'
+					'Error converting video to images. Video information is null or empty.',
 				);
 			}
 
 			await this.hackatonService.sendStatusStartedConvertion(
-				converterInfoDto.userId
+				converterInfoDto.userId,
 			);
 
 			const filesStream = new PassThrough();
 
 			const videoPath = await this.getVideoPath(
 				converterInfoDto.fileName,
-				converterInfoDto.fileStorageKey
+				converterInfoDto.fileStorageKey,
 			);
 
 			ffmpeg(videoPath)
@@ -84,52 +84,52 @@ export class ConverterService {
 				.outputOptions(['-vf', 'fps=1/20', '-q:v', '2'])
 				.on('end', () => {
 					logger.info(
-						`[CONVERTER SERVICE] Video ${converterInfoDto.fileName} to image conversion completed`
+						`[CONVERTER SERVICE] Video ${converterInfoDto.fileName} to image conversion completed`,
 					);
 				})
 				.on('error', (error: Error) => {
 					logger.error(
-						`[CONVERTER SERVICE] Error converting video ${converterInfoDto.fileName} to images: ${error.message}`
+						`[CONVERTER SERVICE] Error converting video ${converterInfoDto.fileName} to images: ${error.message}`,
 					);
 				})
 				.run();
 
 			const fileCompressedPath = await this.generateImagesCompressedFile(
 				converterInfoDto.fileName,
-				filesStream
+				filesStream,
 			);
 
 			const compressedFileKey =
 				await this.simpleStorageService.uploadCompressedFile(
 					converterInfoDto.userId,
-					fileCompressedPath
+					fileCompressedPath,
 				);
 
 			await this.hackatonService.sendStatusFinishedConvertion(
 				compressedFileKey,
-				converterInfoDto.userId
+				converterInfoDto.userId,
 			);
 
 			await this.simpleQueueService.deleteMenssage(
 				message.id,
-				message.receiptHandle
+				message.receiptHandle,
 			);
 
 			logger.info(
 				`[CONVERTER SERVICE] Video ${JSON.stringify(
-					converterInfoDto
-				)} conversion completed.`
+					converterInfoDto,
+				)} conversion completed.`,
 			);
 		} catch (error) {
 			logger.error(
 				error,
 				`[CONVERTER SERVICE] Error converting video ${JSON.stringify(
-					converterInfoDto
-				)}`
+					converterInfoDto,
+				)}`,
 			);
 			if (converterInfoDto && converterInfoDto.userId) {
 				await this.hackatonService.sendStatusErrorConvertion(
-					converterInfoDto.userId
+					converterInfoDto.userId,
 				);
 			}
 		}
@@ -137,7 +137,7 @@ export class ConverterService {
 
 	private async getVideoPath(
 		fileName: string,
-		fileKey: string
+		fileKey: string,
 	): Promise<string> {
 		const videoInfo = await this.simpleStorageService.getVideo(fileKey);
 
@@ -149,9 +149,10 @@ export class ConverterService {
 		const ano = now.getFullYear();
 		const mes = String(now.getMonth() + 1).padStart(2, '0');
 		const dia = String(now.getDate()).padStart(2, '0');
+		const hora = String(now.getHours()).padStart(2, '0');
 		const minuto = String(now.getMinutes()).padStart(2, '0');
 		const segundo = String(now.getSeconds()).padStart(2, '0');
-		return `${ano}${mes}${dia}${minuto}${segundo}`;
+		return `${ano}${mes}${dia}${hora}${minuto}${segundo}`;
 	}
 
 	private saveStreamToTempFile(stream: Readable, key: string): Promise<string> {
@@ -169,7 +170,7 @@ export class ConverterService {
 
 			writeStream.on('finish', () => {
 				logger.info(
-					`[CONVERTER SERVICE] Stream recorded successfully ${tempFilePath}`
+					`[CONVERTER SERVICE] Stream recorded successfully ${tempFilePath}`,
 				);
 				resolve(tempFilePath);
 			});
@@ -186,7 +187,7 @@ export class ConverterService {
 
 	private async createZipStream(
 		imagesStream: Readable,
-		fileName: string
+		fileName: string,
 	): Promise<Readable> {
 		return new Promise((resolve, reject) => {
 			const zipStream = new PassThrough();
@@ -220,13 +221,13 @@ export class ConverterService {
 
 	private async generateImagesCompressedFile(
 		fileName: string,
-		filesStream: Readable
+		filesStream: Readable,
 	): Promise<string> {
 		const compressedFileName = fileName.replace('.mp4', '');
 		let compressedFileKey = `${compressedFileName.toLowerCase()}_${this.generateDateStringKey()}`;
 		const fileZipStream = await this.createZipStream(
 			filesStream,
-			compressedFileKey
+			compressedFileKey,
 		);
 		compressedFileKey += '.zip';
 		await this.saveStreamToTempFile(fileZipStream, compressedFileKey);

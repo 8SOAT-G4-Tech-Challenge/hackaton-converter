@@ -15,37 +15,37 @@ export class HackatonService {
 
 	async sendStatusStartedConvertion(userId: string): Promise<void> {
 		logger.info(
-			`[CONVERTER SERVICE] Sending status of conversation started to user ${userId}`,
+			`[CONVERTER SERVICE] Sending status of conversation started to user ${userId}`
 		);
 		const convertionNotificationDto = new ConvertionNotificationDto(
-			ConvertionStatusEnum.started as ConvertionStatusEnumType,
-			userId,
+			ConvertionStatusEnum.processing,
+			userId
 		);
 		await this.hackatonApi.sendNotification(convertionNotificationDto);
 	}
 
 	async sendStatusErrorConvertion(userId: string): Promise<void> {
 		logger.info(
-			`[CONVERTER SERVICE] Sending status of conversation error to user ${userId}`,
+			`[CONVERTER SERVICE] Sending status of conversation error to user ${userId}`
 		);
 		const convertionNotificationDto = new ConvertionNotificationDto(
 			ConvertionStatusEnum.error as ConvertionStatusEnumType,
-			userId,
+			userId
 		);
 		await this.hackatonApi.sendNotification(convertionNotificationDto);
 	}
 
 	async sendStatusFinishedConvertion(
 		compressedFileKey: string,
-		userId: string,
+		userId: string
 	): Promise<void> {
 		logger.info(
-			`[CONVERTER SERVICE] Sending status of conversation finished to user ${userId} with ${compressedFileKey}`,
+			`[CONVERTER SERVICE] Sending status of conversation finished to user ${userId} with ${compressedFileKey}`
 		);
 		const convertionNotificationDto = new ConvertionNotificationDto(
-			ConvertionStatusEnum.finished as ConvertionStatusEnumType,
+			ConvertionStatusEnum.processed,
 			userId,
-			compressedFileKey,
+			compressedFileKey
 		);
 		await this.hackatonApi.sendNotification(convertionNotificationDto);
 	}

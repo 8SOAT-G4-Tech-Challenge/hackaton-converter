@@ -27,6 +27,6 @@
 		"types": ["jest", "node"],
 		"useUnknownInCatchVariables": false
 	},
-	"include": ["src/**/*", "__tests__/**/*", "mocks"],
+	"include": ["src/**/*", "__tests__/**/*"],
 	"exclude": ["node_modules", "**/*.spec.ts"]
 }

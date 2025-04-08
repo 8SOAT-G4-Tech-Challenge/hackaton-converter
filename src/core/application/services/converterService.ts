@@ -32,134 +32,6 @@ export class ConverterService {
 		ffmpeg.setFfmpegPath(ffmpegPath.path);
 	}
 
-	async convertVideos() {
-		try {
-			logger.info('[CONVERTER SERVICE] Starting videos conversion');
-			const messages: MessageSqsDto[] =
-				await this.simpleQueueService.getMessages();
-			logger.info(
-				`[CONVERTER SERVICE] Total messages found: ${messages.length}`
-			);
-			messages.forEach((message: MessageSqsDto) => {
-				this.convertVideoToImages(message);
-			});
-		} catch (error) {
-			logger.error(error, '[CONVERTER SERVICE] Error converting videos');
-		}
-	}
-
-	private async convertVideoToImages(message: MessageSqsDto): Promise<void> {
-		const converterInfoDto = message.body;
-		try {
-			logger.info(
-				`[CONVERTER SERVICE] Starting video ${JSON.stringify(
-					converterInfoDto
-				)} conversion`
-			);
-
-			if (
-				!converterInfoDto ||
-				!converterInfoDto.fileName ||
-				!converterInfoDto.userId ||
-				!converterInfoDto.fileStorageKey
-			) {
-				throw new Error(
-					'Error converting video to images. Video information is null or empty.'
-				);
-			}
-
-			await this.hackatonService.sendStatusStartedConvertion(
-				converterInfoDto.userId
-			);
-
-			const videoPath = await this.getVideoPath(
-				converterInfoDto.fileName,
-				converterInfoDto.fileStorageKey
-			);
-
-			logger.info(
-				`[CONVERTER SERVICE] Getting video from path ${JSON.stringify(
-					videoPath
-				)}`
-			);
-
-			const date = new Date().getTime();
-			const baseFolder = `/tmp/${date}_${converterInfoDto.userId}`;
-			const framesFolder = `${baseFolder}/frames`;
-			const zipFilePath = `${baseFolder}/${date}.zip`;
-
-			logger.info(
-				`[CONVERTER SERVICE] Creating temp directory ${framesFolder}`
-			);
-			fs.mkdirSync(framesFolder, { recursive: true });
-
-			logger.info('[CONVERTER SERVICE] Starting ffmeg');
-			await new Promise((resolve, reject) => {
-				ffmpeg(videoPath)
-					.output(path.join(framesFolder, 'frame-%03d.jpg'))
-					.outputOptions([
-						'-vf',
-						`fps=1/${this.screenshotsEveryXSeconds}`,
-						'-q:v',
-						'2',
-					])
-					.on('end', () => {
-						logger.info(
-							`[CONVERTER SERVICE] Video ${converterInfoDto.fileName} to image conversion completed`
-						);
-						resolve({});
-					})
-					.on('error', (error: Error) => {
-						logger.error(
-							`[CONVERTER SERVICE] Error converting video ${converterInfoDto.fileName} to images: ${error.message}`
-						);
-						reject(error);
-					})
-					.run();
-			});
-
-			await this.createZip(framesFolder, zipFilePath);
-
-			const compressedFileKey =
-				await this.simpleStorageService.uploadCompressedFile(
-					converterInfoDto.userId,
-					zipFilePath
-				);
-
-			await this.hackatonService.sendStatusFinishedConvertion(
-				compressedFileKey,
-				converterInfoDto.userId
-			);
-
-			await this.simpleQueueService.deleteMenssage(
-				message.id,
-				message.receiptHandle
-			);
-
-			this.cleanupFolder(baseFolder);
-
-			this.simpleStorageService.deleteFile(converterInfoDto.fileStorageKey);
-
-			logger.info(
-				`[CONVERTER SERVICE] Video ${JSON.stringify(
-					converterInfoDto
-				)} conversion completed.`
-			);
-		} catch (error) {
-			logger.error(
-				error,
-				`[CONVERTER SERVICE] Error converting video ${JSON.stringify(
-					converterInfoDto
-				)}`
-			);
-			if (converterInfoDto && converterInfoDto.userId) {
-				await this.hackatonService.sendStatusErrorConvertion(
-					converterInfoDto.userId
-				);
-			}
-		}
-	}
-
 	private async getVideoPath(
 		fileName: string,
 		fileKey: string
@@ -243,4 +115,136 @@ export class ConverterService {
 
 		fs.rmdirSync(folderPath);
 	};
+
+	async convertVideos() {
+		try {
+			logger.info('[CONVERTER SERVICE] Starting videos conversion');
+			const messages: MessageSqsDto[] =
+				await this.simpleQueueService.getMessages();
+			logger.info(
+				`[CONVERTER SERVICE] Total messages found: ${messages.length}`
+			);
+			messages.forEach((message: MessageSqsDto) => {
+				this.convertVideoToImages(message);
+			});
+		} catch (error) {
+			logger.error(error, '[CONVERTER SERVICE] Error converting videos');
+		}
+	}
+
+	private async convertVideoToImages(message: MessageSqsDto): Promise<void> {
+		const converterInfoDto = message.body;
+		try {
+			logger.info(
+				`[CONVERTER SERVICE] Starting video ${JSON.stringify(
+					converterInfoDto
+				)} conversion`
+			);
+
+			if (
+				!converterInfoDto ||
+				!converterInfoDto.fileName ||
+				!converterInfoDto.userId ||
+				!converterInfoDto.fileStorageKey ||
+				!converterInfoDto.fileId
+			) {
+				throw new Error(
+					'Error converting video to images. Video information is null or empty.'
+				);
+			}
+
+			await this.hackatonService.sendStatusStartedConvertion(
+				converterInfoDto.userId,
+				converterInfoDto.fileId
+			);
+
+			const videoPath = await this.getVideoPath(
+				converterInfoDto.fileName,
+				converterInfoDto.fileStorageKey
+			);
+
+			logger.info(
+				`[CONVERTER SERVICE] Getting video from path ${JSON.stringify(
+					videoPath
+				)}`
+			);
+
+			const date = new Date().getTime();
+			const baseFolder = `/tmp/${date}_${converterInfoDto.userId}`;
+			const framesFolder = `${baseFolder}/frames`;
+			const zipFilePath = `${baseFolder}/${date}.zip`;
+
+			logger.info(
+				`[CONVERTER SERVICE] Creating temp directory ${framesFolder}`
+			);
+			fs.mkdirSync(framesFolder, { recursive: true });
+
+			logger.info('[CONVERTER SERVICE] Starting ffmeg');
+			await new Promise((resolve, reject) => {
+				ffmpeg(videoPath)
+					.output(path.join(framesFolder, 'frame-%03d.jpg'))
+					.outputOptions([
+						'-vf',
+						`fps=1/${this.screenshotsEveryXSeconds}`,
+						'-q:v',
+						'2',
+					])
+					.on('end', () => {
+						logger.info(
+							`[CONVERTER SERVICE] Video ${converterInfoDto.fileName} to image conversion completed`
+						);
+						resolve({});
+					})
+					.on('error', (error: Error) => {
+						logger.error(
+							`[CONVERTER SERVICE] Error converting video ${converterInfoDto.fileName} to images: ${error.message}`
+						);
+						reject(error);
+					})
+					.run();
+			});
+
+			await this.createZip(framesFolder, zipFilePath);
+
+			const compressedFileKey =
+				await this.simpleStorageService.uploadCompressedFile(
+					converterInfoDto.userId,
+					zipFilePath
+				);
+
+			await this.hackatonService.sendStatusFinishedConvertion(
+				compressedFileKey,
+				converterInfoDto.userId,
+				converterInfoDto.fileId
+			);
+
+			await this.simpleQueueService.deleteMenssage(
+				message.id,
+				message.receiptHandle
+			);
+
+			this.cleanupFolder(baseFolder);
+
+			this.simpleStorageService.deleteFile(converterInfoDto.fileStorageKey);
+
+			logger.info(
+				`[CONVERTER SERVICE] Video ${JSON.stringify(
+					converterInfoDto
+				)} conversion completed.`
+			);
+		} catch (error) {
+			logger.error(
+				error,
+				`[CONVERTER SERVICE] Error converting video ${JSON.stringify(
+					converterInfoDto
+				)}`
+			);
+			if (converterInfoDto && converterInfoDto.userId) {
+				await this.hackatonService.sendStatusErrorConvertion(
+					converterInfoDto.userId,
+					converterInfoDto.fileId
+				);
+			}
+		}
+	}
 }

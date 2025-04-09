@@ -26,11 +26,11 @@ describe('HackatonService', () => {
 	});
 
 	describe('sendStatusStartedConvertion', () => {
-		it('should send a started status notification', async () => {
+		it('should send a processing status notification', async () => {
 			// Arrange
 			const userId = 'test-user-id';
 			const expectedDto = new ConvertionNotificationDto(
-				ConvertionStatusEnum.started as ConvertionStatusEnumType,
+				ConvertionStatusEnum.processing as ConvertionStatusEnumType,
 				userId,
 			);
 
@@ -77,7 +77,7 @@ describe('HackatonService', () => {
 			const userId = 'test-user-id';
 			const compressedFileKey = 'test-compressed-file.zip';
 			const expectedDto = new ConvertionNotificationDto(
-				ConvertionStatusEnum.finished as ConvertionStatusEnumType,
+				ConvertionStatusEnum.processed as ConvertionStatusEnumType,
 				userId,
 				compressedFileKey,
 			);

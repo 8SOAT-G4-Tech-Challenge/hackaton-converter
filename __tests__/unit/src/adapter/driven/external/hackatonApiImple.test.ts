@@ -95,7 +95,7 @@ describe('HackatonApiImpl', () => {
 	describe('sendNotification', () => {
 		it('should log information about the notification', async () => {
 			const dto = new ConvertionNotificationDto(
-				ConvertionStatusEnum.started as ConvertionStatusEnumType,
+				ConvertionStatusEnum.initialized as ConvertionStatusEnumType,
 				'test-user-id',
 			);
 
@@ -129,7 +129,7 @@ describe('HackatonApiImpl', () => {
 
 		it('should construct the correct URL for the API call', async () => {
 			const dto = new ConvertionNotificationDto(
-				ConvertionStatusEnum.started as ConvertionStatusEnumType,
+				ConvertionStatusEnum.initialized as ConvertionStatusEnumType,
 				'test-user-id',
 			);
 

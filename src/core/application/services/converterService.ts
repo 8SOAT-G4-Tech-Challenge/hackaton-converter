@@ -19,8 +19,6 @@ export class ConverterService {
 
 	private readonly hackatonService;
 
-	private screenshotsEveryXSeconds: number = 20;
-
 	constructor(
 		simpleQueueService: SimpleQueueService,
 		simpleStoageService: SimpleStorageService,
@@ -146,7 +144,8 @@ export class ConverterService {
 				!converterInfoDto.fileName ||
 				!converterInfoDto.userId ||
 				!converterInfoDto.fileStorageKey ||
-				!converterInfoDto.fileId
+				!converterInfoDto.fileId ||
+				!converterInfoDto.screenshotsTime
 			) {
 				throw new Error(
 					'Error converting video to images. Video information is null or empty.'
@@ -185,7 +184,7 @@ export class ConverterService {
 					.output(path.join(framesFolder, 'frame-%03d.jpg'))
 					.outputOptions([
 						'-vf',
-						`fps=1/${this.screenshotsEveryXSeconds}`,
+						`fps=1/${converterInfoDto.screenshotsTime}`,
 						'-q:v',
 						'2',
 					])

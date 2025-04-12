@@ -7,6 +7,7 @@ import { ConverterService } from '@services/converterService';
 import { HackatonService } from '@services/hackatonService';
 import { SimpleQueueService } from '@services/simpleQueueService';
 import { SimpleStorageService } from '@services/simpleStorageService';
+import { MessageSqsDto } from '@src/core/application/dtos/messageSqsDto';
 
 jest.mock('archiver', () => {
 	function createMockArchiver() {
@@ -83,8 +84,15 @@ jest.mock('path', () => ({
 	parse: jest.fn().mockReturnValue({ name: 'test-video', ext: '.mp4' }),
 }));
 
+class TestConverterService extends ConverterService {
+	// Expor métodos protegidos para teste
+	public testConvertVideoToImages(message: MessageSqsDto): Promise<void> {
+		return this.convertVideoToImages(message);
+	}
+}
+
 describe('ConverterService - Simple Functions', () => {
-	let converterService: ConverterService;
+	let converterService: TestConverterService;
 	let mockQueueService: jest.Mocked<SimpleQueueService>;
 	let mockStorageService: jest.Mocked<SimpleStorageService>;
 	let mockHackatonService: jest.Mocked<HackatonService>;
@@ -111,6 +119,7 @@ describe('ConverterService - Simple Functions', () => {
 		mockStorageService = {
 			getVideo: jest.fn(),
 			uploadCompressedFile: jest.fn(),
+			deleteFile: jest.fn(),
 		} as unknown as jest.Mocked<SimpleStorageService>;
 
 		mockHackatonService = {
@@ -119,7 +128,7 @@ describe('ConverterService - Simple Functions', () => {
 			sendStatusFinishedConvertion: jest.fn(),
 		} as unknown as jest.Mocked<HackatonService>;
 
-		converterService = new ConverterService(
+		converterService = new TestConverterService(
 			mockQueueService,
 			mockStorageService,
 			mockHackatonService,
@@ -1259,6 +1268,36 @@ describe('ConverterService - Simple Functions', () => {
 			// Restore
 			console.error = originalConsoleError;
 			(converterService as any).cleanupFolder = originalCleanupFolder;
+		});
+	});
+
+	describe('convertVideoToImages - Video conversion flow', () => {
+		const mockUserId = 'test-user-detailed';
+		const mockFileName = 'test-detailed-video.mp4';
+		const mockFileStorageKey = 'storage/test-detailed-video.mp4';
+
+		const mockMessage = {
+			id: 'msg-detailed-id',
+			receiptHandle: 'receipt-detailed-handle',
+			body: {
+				userId: mockUserId,
+				fileName: mockFileName,
+				fileStorageKey: mockFileStorageKey,
+			},
+		};
+
+		beforeEach(() => {
+			jest.clearAllMocks();
+		});
+
+		it('should handle full video conversion flow successfully', async () => {
+			// Act
+			await converterService.testConvertVideoToImages(mockMessage);
+
+			// Assert
+			expect(
+				mockHackatonService.sendStatusStartedConvertion,
+			).toHaveBeenCalledWith(mockUserId);
 		});
 	});
 });

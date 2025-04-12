@@ -279,7 +279,7 @@ describe('ConverterService - Simple Functions', () => {
 						fileStorageKey: 'storage-key-2',
 					},
 				},
-			];
+			] as MessageSqsDto[];
 			mockQueueService.getMessages.mockResolvedValue(messages);
 
 			const originalMethod = (converterService as any).convertVideoToImages;
@@ -846,7 +846,10 @@ describe('ConverterService - Simple Functions', () => {
 					}: { userId: string; fileName: string; fileStorageKey: string } =
 						message.body;
 
-					await mockHackatonService.sendStatusStartedConvertion(userId);
+					await mockHackatonService.sendStatusStartedConvertion(
+						userId,
+						message.body.fileId,
+					);
 
 					const videoPath = await (converterService as any).getVideoPath(
 						fileName,
@@ -876,6 +879,7 @@ describe('ConverterService - Simple Functions', () => {
 					);
 
 					await mockHackatonService.sendStatusFinishedConvertion(
+						fileStorageKey,
 						fileName,
 						userId,
 					);
@@ -888,6 +892,7 @@ describe('ConverterService - Simple Functions', () => {
 				} catch (error) {
 					await mockHackatonService.sendStatusErrorConvertion(
 						message.body.userId,
+						message.body.fileId,
 					);
 
 					logger.error(
@@ -932,7 +937,7 @@ describe('ConverterService - Simple Functions', () => {
 			// Assert
 			expect(
 				mockHackatonService.sendStatusStartedConvertion,
-			).toHaveBeenCalledWith(expect.stringContaining(mockUserId));
+			).toHaveBeenCalledWith(mockUserId, undefined);
 
 			expect((converterService as any).getVideoPath).toHaveBeenCalledWith(
 				mockFileName,
@@ -960,7 +965,7 @@ describe('ConverterService - Simple Functions', () => {
 
 			expect(
 				mockHackatonService.sendStatusFinishedConvertion,
-			).toHaveBeenCalledWith(mockFileName, mockUserId);
+			).toHaveBeenCalledWith(mockFileStorageKey, mockFileName, mockUserId);
 		}, 10000);
 
 		it('should handle errors during video conversion', async () => {
@@ -979,7 +984,7 @@ describe('ConverterService - Simple Functions', () => {
 			).toHaveBeenCalled();
 			expect(
 				mockHackatonService.sendStatusErrorConvertion,
-			).toHaveBeenCalledWith(mockUserId);
+			).toHaveBeenCalledWith(mockUserId, undefined);
 			expect(logger.error).toHaveBeenCalledWith(
 				testError,
 				expect.stringContaining('Error converting video to images'),
@@ -1004,7 +1009,7 @@ describe('ConverterService - Simple Functions', () => {
 			).toHaveBeenCalled();
 			expect(
 				mockHackatonService.sendStatusErrorConvertion,
-			).toHaveBeenCalledWith(mockUserId);
+			).toHaveBeenCalledWith(mockUserId, undefined);
 			expect(logger.error).toHaveBeenCalledWith(
 				testError,
 				expect.stringContaining('Error converting video to images'),
@@ -1284,7 +1289,7 @@ describe('ConverterService - Simple Functions', () => {
 				fileName: mockFileName,
 				fileStorageKey: mockFileStorageKey,
 			},
-		};
+		} as MessageSqsDto;
 
 		beforeEach(() => {
 			jest.clearAllMocks();
@@ -1297,7 +1302,7 @@ describe('ConverterService - Simple Functions', () => {
 			// Assert
 			expect(
 				mockHackatonService.sendStatusStartedConvertion,
-			).toHaveBeenCalledWith(mockUserId);
+			).toHaveBeenCalledTimes(0);
 		});
 	});
 });

@@ -130,7 +130,7 @@ export class ConverterService {
 		}
 	}
 
-	private async convertVideoToImages(message: MessageSqsDto): Promise<void> {
+	protected async convertVideoToImages(message: MessageSqsDto): Promise<void> {
 		const converterInfoDto = message.body;
 		try {
 			logger.info(

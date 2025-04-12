@@ -1,4 +1,5 @@
 import {
+	DeleteObjectCommand,
 	GetObjectCommand,
 	PutObjectCommand,
 	S3Client,
@@ -15,6 +16,9 @@ jest.mock('@common/logger', () => ({
 // Mock das variáveis de ambiente
 const originalEnv = process.env;
 
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+
 describe('AwsSimpleStorageImpl', () => {
 	let awsSimpleStorage: AwsSimpleStorageImpl;
 	let mockSendGet: jest.Mock;
@@ -27,6 +31,9 @@ describe('AwsSimpleStorageImpl', () => {
 			AWS_REGION: 'us-east-1',
 			AWS_BUCKET: 'test-bucket',
 		};
+
+		console.log = jest.fn();
+		console.error = jest.fn();
 
 		// Resetando mocks
 		jest.clearAllMocks();
@@ -46,6 +53,8 @@ describe('AwsSimpleStorageImpl', () => {
 
 	afterEach(() => {
 		process.env = originalEnv;
+		console.log = originalConsoleLog;
+		console.error = originalConsoleError;
 	});
 
 	describe('getObject', () => {
@@ -106,10 +115,13 @@ describe('AwsSimpleStorageImpl', () => {
 
 	describe('uploadFile', () => {
 		beforeEach(() => {
+			mockSendPut = jest.fn();
 			// Re-mock S3Client para uploadFile
 			(S3Client as jest.Mock).mockImplementation(() => ({
 				send: mockSendPut,
 			}));
+
+			awsSimpleStorage = new AwsSimpleStorageImpl();
 		});
 
 		it('should create S3Client with correct region and call PutObjectCommand', async () => {
@@ -174,6 +186,83 @@ describe('AwsSimpleStorageImpl', () => {
 			expect(PutObjectCommand).toHaveBeenCalledWith(
 				expect.objectContaining({
 					Key: 'user-123/images/test-file.zip',
+				}),
+			);
+		});
+	});
+
+	describe('deleteFile', () => {
+		let mockSendDelete: jest.Mock;
+
+		beforeEach(() => {
+			mockSendDelete = jest.fn();
+			// Re-mock S3Client para deleteFile
+			(S3Client as jest.Mock).mockImplementation(() => ({
+				send: mockSendDelete,
+			}));
+
+			awsSimpleStorage = new AwsSimpleStorageImpl();
+		});
+
+		it('should call DeleteObjectCommand with correct parameters', async () => {
+			// Arrange
+			const key = 'test-file.zip';
+			mockSendDelete.mockResolvedValue({});
+
+			// Act
+			await awsSimpleStorage.deleteFile(key);
+
+			// Assert
+			expect(S3Client).toHaveBeenCalledWith({ region: 'us-east-1' });
+			expect(DeleteObjectCommand).toHaveBeenCalledWith({
+				Bucket: 'test-bucket',
+				Key: key,
+			});
+			expect(mockSendDelete).toHaveBeenCalledTimes(1);
+			expect(console.log).toHaveBeenCalledWith(
+				expect.stringContaining(
+					`Arquivo ${key} deletado do bucket test-bucket`,
+				),
+			);
+		});
+
+		it('should handle error without throwing when deleting file fails', async () => {
+			// Arrange
+			const key = 'test-file.zip';
+			const errorMessage = 'Error deleting file';
+			const testError = new Error(errorMessage);
+			mockSendDelete.mockRejectedValue(testError);
+
+			// Act - Como o método encapsula os erros, não devemos ter exceção
+			const result = await awsSimpleStorage.deleteFile(key);
+
+			// Assert
+			expect(result).toBeUndefined(); // Método retorna void
+			expect(DeleteObjectCommand).toHaveBeenCalledWith({
+				Bucket: 'test-bucket',
+				Key: key,
+			});
+			expect(mockSendDelete).toHaveBeenCalledTimes(1);
+			expect(console.error).toHaveBeenCalledWith(
+				expect.stringContaining(`Erro ao deletar arquivo ${key} do bucket:`),
+				testError,
+			);
+			// Não deve chamar o log de sucesso
+			expect(console.log).not.toHaveBeenCalled();
+		});
+
+		it('should use the exact key provided without modification', async () => {
+			// Arrange
+			const key = 'path/to/user/images/file.zip';
+			mockSendDelete.mockResolvedValue({});
+
+			// Act
+			await awsSimpleStorage.deleteFile(key);
+
+			// Assert
+			expect(DeleteObjectCommand).toHaveBeenCalledWith(
+				expect.objectContaining({
+					Key: 'path/to/user/images/file.zip',
 				}),
 			);
 		});

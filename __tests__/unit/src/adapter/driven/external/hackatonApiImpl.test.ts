@@ -94,10 +94,11 @@ describe('HackatonApiImpl', () => {
 
 	describe('sendNotification', () => {
 		it('should log information about the notification', async () => {
-			const dto = new ConvertionNotificationDto(
-				ConvertionStatusEnum.started as ConvertionStatusEnumType,
-				'test-user-id',
-			);
+			const dto = new ConvertionNotificationDto({
+				status: ConvertionStatusEnum.initialized as ConvertionStatusEnumType,
+				userId: 'test-user-id',
+				fileId: 'test-file-id',
+			});
 
 			await hackatonApi.sendNotification(dto);
 
@@ -109,10 +110,11 @@ describe('HackatonApiImpl', () => {
 		});
 
 		it('should log error and rethrow when an exception occurs', async () => {
-			const dto = new ConvertionNotificationDto(
-				ConvertionStatusEnum.error as ConvertionStatusEnumType,
-				'test-user-id',
-			);
+			const dto = new ConvertionNotificationDto({
+				status: ConvertionStatusEnum.initialized as ConvertionStatusEnumType,
+				userId: 'test-user-id',
+				fileId: 'test-file-id',
+			});
 			const testError = new Error('Test error');
 
 			mockedLogger.info.mockImplementationOnce(() => {
@@ -128,15 +130,16 @@ describe('HackatonApiImpl', () => {
 		});
 
 		it('should construct the correct URL for the API call', async () => {
-			const dto = new ConvertionNotificationDto(
-				ConvertionStatusEnum.started as ConvertionStatusEnumType,
-				'test-user-id',
-			);
+			const dto = new ConvertionNotificationDto({
+				status: ConvertionStatusEnum.initialized as ConvertionStatusEnumType,
+				userId: 'test-user-id',
+				fileId: 'test-file-id',
+			});
 
 			await hackatonApi.sendNotification(dto);
 
 			expect(mockedLogger.info).toHaveBeenCalledWith(
-				expect.stringContaining('http://test-api.com/notifications'),
+				expect.stringContaining('Sending status of convertion initialized to user test-user-id'),
 			);
 		});
 	});

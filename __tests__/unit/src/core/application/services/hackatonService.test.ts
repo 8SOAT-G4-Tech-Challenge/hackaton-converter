@@ -26,16 +26,18 @@ describe('HackatonService', () => {
 	});
 
 	describe('sendStatusStartedConvertion', () => {
-		it('should send a started status notification', async () => {
+		it('should send a processing status notification', async () => {
 			// Arrange
 			const userId = 'test-user-id';
-			const expectedDto = new ConvertionNotificationDto(
-				ConvertionStatusEnum.started as ConvertionStatusEnumType,
-				userId,
-			);
+			const fileId = 'test-file-id';
+			const expectedDto = new ConvertionNotificationDto({
+				status: ConvertionStatusEnum.processing as ConvertionStatusEnumType,
+				userId: 'test-user-id',
+				fileId: 'test-file-id',
+			});
 
 			// Act
-			await hackatonService.sendStatusStartedConvertion(userId);
+			await hackatonService.sendStatusStartedConvertion(userId, fileId);
 
 			// Assert
 			expect(mockHackatonApi.sendNotification).toHaveBeenCalledTimes(1);
@@ -43,6 +45,7 @@ describe('HackatonService', () => {
 				expect.objectContaining({
 					status: expectedDto.status,
 					userId: expectedDto.userId,
+					fileId: expectedDto.fileId,
 				}),
 			);
 		});
@@ -52,13 +55,15 @@ describe('HackatonService', () => {
 		it('should send an error status notification', async () => {
 			// Arrange
 			const userId = 'test-user-id';
-			const expectedDto = new ConvertionNotificationDto(
-				ConvertionStatusEnum.error as ConvertionStatusEnumType,
-				userId,
-			);
+			const fileId = 'test-file-id';
+			const expectedDto = new ConvertionNotificationDto({
+				status: ConvertionStatusEnum.error as ConvertionStatusEnumType,
+				userId: 'test-user-id',
+				fileId: 'test-file-id',
+			});
 
 			// Act
-			await hackatonService.sendStatusErrorConvertion(userId);
+			await hackatonService.sendStatusErrorConvertion(userId, fileId);
 
 			// Assert
 			expect(mockHackatonApi.sendNotification).toHaveBeenCalledTimes(1);
@@ -66,6 +71,7 @@ describe('HackatonService', () => {
 				expect.objectContaining({
 					status: expectedDto.status,
 					userId: expectedDto.userId,
+					fileId: expectedDto.fileId,
 				}),
 			);
 		});
@@ -76,16 +82,20 @@ describe('HackatonService', () => {
 			// Arrange
 			const userId = 'test-user-id';
 			const compressedFileKey = 'test-compressed-file.zip';
-			const expectedDto = new ConvertionNotificationDto(
-				ConvertionStatusEnum.finished as ConvertionStatusEnumType,
-				userId,
-				compressedFileKey,
-			);
+			const fileId = 'test-file-id';
+
+			const expectedDto = new ConvertionNotificationDto({
+				status: ConvertionStatusEnum.processed as ConvertionStatusEnumType,
+				userId: 'test-user-id',
+				fileId: 'test-file-id',
+				compressedFileKey: 'test-compressed-file.zip',
+			});
 
 			// Act
 			await hackatonService.sendStatusFinishedConvertion(
 				compressedFileKey,
 				userId,
+				fileId
 			);
 
 			// Assert
@@ -94,6 +104,7 @@ describe('HackatonService', () => {
 				expect.objectContaining({
 					status: expectedDto.status,
 					userId: expectedDto.userId,
+					fileId: expectedDto.fileId,
 					compressedFileKey: expectedDto.compressedFileKey,
 				}),
 			);

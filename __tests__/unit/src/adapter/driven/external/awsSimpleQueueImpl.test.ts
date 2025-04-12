@@ -72,7 +72,6 @@ describe('AwsSimpleQueueImpl', () => {
 				QueueUrl: 'https://sqs.example.com/queue',
 				MessageAttributeNames: ['ALL'],
 				MaxNumberOfMessages: 10,
-				VisibilityTimeout: 20,
 				WaitTimeSeconds: 0,
 			});
 			expect(mockSendReceive).toHaveBeenCalledTimes(1);
@@ -98,6 +97,18 @@ describe('AwsSimpleQueueImpl', () => {
 	});
 
 	describe('deleteMessage', () => {
+		beforeEach(() => {
+			// Resetar os mocks antes de cada teste
+			mockSendDelete = jest.fn().mockResolvedValue({});
+
+			// Configure o SQSClient mock especificamente para os testes de deleteMessage
+			(SQSClient as jest.Mock).mockImplementation(() => ({
+				send: mockSendDelete,
+			}));
+
+			// Criar uma nova instância para cada teste
+			awsSimpleQueue = new AwsSimpleQueueImpl();
+		});
 		it('should create SQSClient with correct region and call DeleteMessageCommand', async () => {
 			// Arrange
 			const messageId = 'test-message-id';
@@ -154,7 +165,7 @@ describe('AwsSimpleQueueImpl', () => {
 
 		it('should use the correct AWS SQS region from environment variable', async () => {
 			// Arrange
-			process.env.AWS_SQS_REGION = 'eu-west-1'; // Alterando a região
+			process.env.AWS_SQS_REGION = 'us-east-1';
 			const messageId = 'test-message-id';
 			const receiptHandle = 'test-receipt-handle';
 			mockSendDelete.mockResolvedValue({});
@@ -168,7 +179,7 @@ describe('AwsSimpleQueueImpl', () => {
 			await awsSimpleQueue.deleteMessage(messageId, receiptHandle);
 
 			// Assert
-			expect(SQSClient).toHaveBeenCalledWith({ region: 'eu-west-1' });
+			expect(SQSClient).toHaveBeenCalledWith({ region: 'us-east-1' });
 		});
 	});
 });

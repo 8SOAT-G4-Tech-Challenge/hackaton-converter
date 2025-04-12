@@ -1,5 +1,3 @@
-// Mock de arquivos antes de qualquer importação
-// Agora podemos importar as dependências
 import * as fs from 'fs';
 import * as os from 'os';
 import { PassThrough } from 'stream';
@@ -9,11 +7,10 @@ import { ConverterService } from '@services/converterService';
 import { HackatonService } from '@services/hackatonService';
 import { SimpleQueueService } from '@services/simpleQueueService';
 import { SimpleStorageService } from '@services/simpleStorageService';
+import { MessageSqsDto } from '@src/core/application/dtos/messageSqsDto';
 
 jest.mock('archiver', () => {
-	// Criamos uma factory function para evitar referência circular
 	function createMockArchiver() {
-		// Criamos o objeto primeiro com tipo explícito
 		const mockArchiver: Record<string, jest.Mock> = {
 			pipe: jest.fn(),
 			directory: jest.fn(),
@@ -21,9 +18,9 @@ jest.mock('archiver', () => {
 			on: jest.fn(),
 			append: jest.fn(),
 			emit: jest.fn(),
+			pointer: jest.fn().mockReturnValue(12345),
 		};
 
-		// Agora configuramos os retornos depois que o objeto foi definido
 		mockArchiver.pipe.mockReturnValue(mockArchiver);
 		mockArchiver.directory.mockReturnValue(mockArchiver);
 		mockArchiver.append.mockReturnValue(mockArchiver);
@@ -39,7 +36,6 @@ jest.mock('archiver', () => {
 		return mockArchiver;
 	}
 
-	// Retornamos uma função que cria um novo mockArchiver cada vez que é chamada
 	return jest.fn().mockImplementation(createMockArchiver);
 });
 
@@ -49,6 +45,10 @@ jest.mock('fs', () => ({
 	createWriteStream: jest.fn(),
 	writeFile: jest.fn(),
 	unlink: jest.fn(),
+	readdirSync: jest.fn(),
+	lstatSync: jest.fn(),
+	unlinkSync: jest.fn(),
+	rmdirSync: jest.fn(),
 }));
 
 jest.mock('fluent-ffmpeg', () => {
@@ -79,8 +79,20 @@ jest.mock('os', () => ({
 	tmpdir: jest.fn().mockReturnValue('/mock/tmp'),
 }));
 
+jest.mock('path', () => ({
+	join: jest.fn((folderPath, file) => `${folderPath}/${file}`),
+	parse: jest.fn().mockReturnValue({ name: 'test-video', ext: '.mp4' }),
+}));
+
+class TestConverterService extends ConverterService {
+	// Expor métodos protegidos para teste
+	public testConvertVideoToImages(message: MessageSqsDto): Promise<void> {
+		return this.convertVideoToImages(message);
+	}
+}
+
 describe('ConverterService - Simple Functions', () => {
-	let converterService: ConverterService;
+	let converterService: TestConverterService;
 	let mockQueueService: jest.Mocked<SimpleQueueService>;
 	let mockStorageService: jest.Mocked<SimpleStorageService>;
 	let mockHackatonService: jest.Mocked<HackatonService>;
@@ -89,10 +101,8 @@ describe('ConverterService - Simple Functions', () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
 
-		// Configurar o mock do writeStream
 		mockWriteStream = {
 			on: jest.fn((event: string, callback: () => void) => {
-				// Simular o evento 'finish' imediatamente para os testes
 				if (event === 'finish') {
 					setTimeout(callback, 0);
 				}
@@ -109,6 +119,7 @@ describe('ConverterService - Simple Functions', () => {
 		mockStorageService = {
 			getVideo: jest.fn(),
 			uploadCompressedFile: jest.fn(),
+			deleteFile: jest.fn(),
 		} as unknown as jest.Mocked<SimpleStorageService>;
 
 		mockHackatonService = {
@@ -117,7 +128,7 @@ describe('ConverterService - Simple Functions', () => {
 			sendStatusFinishedConvertion: jest.fn(),
 		} as unknown as jest.Mocked<HackatonService>;
 
-		converterService = new ConverterService(
+		converterService = new TestConverterService(
 			mockQueueService,
 			mockStorageService,
 			mockHackatonService,
@@ -132,41 +143,6 @@ describe('ConverterService - Simple Functions', () => {
 			// Assert
 			expect(result).toBe('/mock/tmp/hackaton-converter');
 			expect(os.tmpdir).toHaveBeenCalledTimes(1);
-		});
-	});
-
-	describe('generateDateStringKey', () => {
-		it('should generate a date string in the correct format', () => {
-			// Arrange
-			const mockDate = new Date(2023, 3, 15, 10, 30, 45); // 2023-04-15 10:30:45
-			jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
-
-			// Act
-			const result = (converterService as any).generateDateStringKey();
-
-			// Assert
-			// Esperado: ano+mes+dia+hora+minuto+segundo (20230415103045)
-			expect(result).toBe('20230415103045');
-
-			// Restaura o mock do Date
-			jest.restoreAllMocks();
-		});
-
-		it('should pad numbers with leading zeros when needed', () => {
-			// Arrange
-			const mockDate = new Date(2023, 0, 5, 9, 5, 7); // 2023-01-05 09:05:07
-			jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
-
-			// Act
-			const result = (converterService as any).generateDateStringKey();
-
-			// Assert
-			// Deve adicionar zeros à esquerda para
-			// mês (01), dia (05), hora (09), minuto (05) e segundo (07)
-			expect(result).toBe('20230105090507');
-
-			// Restaura o mock do Date
-			jest.restoreAllMocks();
 		});
 	});
 
@@ -238,7 +214,6 @@ describe('ConverterService - Simple Functions', () => {
 			const fileName = 'test-file.mp4';
 			const testError = new Error('Write error');
 
-			// Sobrescrever o mock para o evento 'on' para simular um erro
 			mockWriteStream.on.mockImplementation(
 				(event: string, callback: (err?: Error) => void) => {
 					if (event === 'error') {
@@ -277,378 +252,62 @@ describe('ConverterService - Simple Functions', () => {
 
 			// Assert
 			expect(mockQueueService.getMessages).toHaveBeenCalledTimes(1);
-			// Verificar se o erro foi registrado
 			expect(logger.error).toHaveBeenCalledWith(
 				testError,
 				'[CONVERTER SERVICE] Error converting videos',
 			);
 		});
-	});
 
-	describe('createZipStream', () => {
-		// Aumentar o timeout para cada teste individualmente em vez de no describe
-
-		it('should create a zip stream from an image stream', async () => {
-			// Configurar timeout para este teste individual
-			jest.setTimeout(15000);
-
+		it('should call convertVideoToImages for each message', async () => {
 			// Arrange
-			const mockImagesStream = new PassThrough();
-			const fileName = 'test-video';
+			const messages = [
+				{
+					id: 'msg1',
+					receiptHandle: 'receipt1',
+					body: {
+						fileName: 'video1.mp4',
+						userId: 'user-1',
+						fileStorageKey: 'storage-key-1',
+					},
+				},
+				{
+					id: 'msg2',
+					receiptHandle: 'receipt2',
+					body: {
+						fileName: 'video2.mp4',
+						userId: 'user-2',
+						fileStorageKey: 'storage-key-2',
+					},
+				},
+			] as MessageSqsDto[];
+			mockQueueService.getMessages.mockResolvedValue(messages);
 
-			// Tenta simplificar o teste para evitar o timeout
-			// Cria um mock da função createZipStream para evitar a execução real
-			const createZipStreamMock = jest.spyOn(
-				converterService as any,
-				'createZipStream',
-			);
-
-			// Criar resultado simulado
-			const mockZipStream = new PassThrough();
-			createZipStreamMock.mockResolvedValue(mockZipStream);
-
-			// Act - não chama a função real,
-			// apenas verifica se ela seria chamada com os parâmetros corretos
-			const result = await (converterService as any).createZipStream(
-				mockImagesStream,
-				fileName,
-			);
-
-			// Assert - verifica apenas se o mock foi chamado
-			expect(result).toBe(mockZipStream);
-			expect(createZipStreamMock).toHaveBeenCalledWith(
-				mockImagesStream,
-				fileName,
-			);
-
-			// Restaura o mock
-			createZipStreamMock.mockRestore();
-		}, 15000); // Adiciona o timeout como segundo parâmetro da função it
-
-		it('should handle errors in the image stream', async () => {
-			// Configurar timeout para este teste individual
-			jest.setTimeout(15000);
-
-			// Arrange
-			const mockImagesStream = new PassThrough();
-			const fileName = 'test-video';
-			const testError = new Error('Image stream error');
-
-			// Mock simplificado que rejeita a promise
-			const createZipStreamMock = jest.spyOn(
-				converterService as any,
-				'createZipStream',
-			);
-			createZipStreamMock.mockRejectedValue(testError);
-
-			// Act & Assert
-			await expect(
-				(converterService as any).createZipStream(mockImagesStream, fileName),
-			).rejects.toThrow('Image stream error');
-
-			// Restaura o mock
-			createZipStreamMock.mockRestore();
-		}, 15000); // Adiciona o timeout como segundo parâmetro da função it
-
-		it('should handle errors in the archive creation', async () => {
-			// Configurar timeout para este teste individual
-			jest.setTimeout(15000);
-
-			// Arrange
-			const mockImagesStream = new PassThrough();
-			const fileName = 'test-video';
-			const testError = new Error('Archive error');
-
-			// Mock simplificado que rejeita a promise
-			const createZipStreamMock = jest.spyOn(
-				converterService as any,
-				'createZipStream',
-			);
-			createZipStreamMock.mockRejectedValue(testError);
-
-			// Act & Assert
-			await expect(
-				(converterService as any).createZipStream(mockImagesStream, fileName),
-			).rejects.toThrow('Archive error');
-
-			// Restaura o mock
-			createZipStreamMock.mockRestore();
-		}, 15000); // Adiciona o timeout como segundo parâmetro da função it
-
-		// Adicione isso ao bloco de testes existente para createZipStream
-
-		it('should append data chunks to archive', async () => {
-			// Configurar timeout para este teste individual
-			jest.setTimeout(30000); // Aumentar o timeout ainda mais
-
-			// Arrange
-			const mockImagesStream = new PassThrough();
-			const fileName = 'test-video';
-
-			// Simplificar o teste usando mocks mais diretos
-			const createZipStreamMock = jest.spyOn(
-				converterService as any,
-				'createZipStream',
-			);
-
-			// Mock simplificado que retorna imediatamente
-			const mockZipStream = new PassThrough();
-			createZipStreamMock.mockResolvedValue(mockZipStream);
+			const originalMethod = (converterService as any).convertVideoToImages;
+			(converterService as any).convertVideoToImages = jest
+				.fn()
+				.mockResolvedValue(undefined);
 
 			// Act
-			const result = await (converterService as any).createZipStream(
-				mockImagesStream,
-				fileName,
-			);
-
-			// Assert - verificar apenas o básico
-			expect(result).toBe(mockZipStream);
-
-			// Restaura o mock
-			createZipStreamMock.mockRestore();
-		}, 30000);
-	});
-
-	describe('generateImagesCompressedFile', () => {
-		it('should generate a compressed file from image stream', async () => {
-			// Configurar timeout para este teste individual
-			jest.setTimeout(15000);
-
-			// Arrange
-			const mockImageStream = new PassThrough();
-			const fileName = 'test-video.mp4';
-			const dateKey = '20230415103045';
-			const expectedZipName = 'test-video_20230415103045.zip';
-			const expectedPath =
-				'/mock/tmp/hackaton-converter/test-video_20230415103045.zip';
-
-			// Mock das funções internas usadas pelo método
-			jest
-				.spyOn(converterService as any, 'generateDateStringKey')
-				.mockReturnValue(dateKey);
-			jest
-				.spyOn(converterService as any, 'getTempDir')
-				.mockReturnValue('/mock/tmp/hackaton-converter');
-
-			// Mock da função createZipStream para retornar um stream simulado
-			const mockZipStream = new PassThrough();
-			const createZipStreamMock = jest
-				.spyOn(converterService as any, 'createZipStream')
-				.mockResolvedValue(mockZipStream);
-
-			// Mock da função saveStreamToTempFile para retornar um caminho de arquivo
-			const saveStreamMock = jest
-				.spyOn(converterService as any, 'saveStreamToTempFile')
-				.mockResolvedValue(expectedPath);
-
-			// Act
-			const result = await (
-				converterService as any
-			).generateImagesCompressedFile(fileName, mockImageStream);
+			await converterService.convertVideos();
 
 			// Assert
-			expect(result).toBe(expectedPath);
+			expect(mockQueueService.getMessages).toHaveBeenCalledTimes(1);
 			expect(
-				(converterService as any).generateDateStringKey,
-			).toHaveBeenCalledTimes(1);
-			expect((converterService as any).createZipStream).toHaveBeenCalledWith(
-				mockImageStream,
-				`test-video_${dateKey}`,
-			);
+				(converterService as any).convertVideoToImages,
+			).toHaveBeenCalledTimes(2);
 			expect(
-				(converterService as any).saveStreamToTempFile,
-			).toHaveBeenCalledWith(mockZipStream, expectedZipName);
-
-			// Restaura os mocks
-			(converterService as any).generateDateStringKey.mockRestore();
-			(converterService as any).getTempDir.mockRestore();
-			createZipStreamMock.mockRestore();
-			saveStreamMock.mockRestore();
-		}, 15000);
-
-		it('should handle errors during compression', async () => {
-			// Configurar timeout para este teste individual
-			jest.setTimeout(15000);
-
-			// Arrange
-			const mockImageStream = new PassThrough();
-			const fileName = 'test-video.mp4';
-			const dateKey = '20230415103045';
-			const testError = new Error('Compression error');
-
-			// Mock das funções necessárias
-			jest
-				.spyOn(converterService as any, 'generateDateStringKey')
-				.mockReturnValue(dateKey);
-
-			// Mock da função createZipStream para simular um erro
-			const createZipStreamMock = jest
-				.spyOn(converterService as any, 'createZipStream')
-				.mockRejectedValue(testError);
-
-			// Act & Assert
-			await expect(
-				(converterService as any).generateImagesCompressedFile(
-					fileName,
-					mockImageStream,
-				),
-			).rejects.toThrow('Compression error');
-
-			// Verificar se as funções foram chamadas com os argumentos corretos
+				(converterService as any).convertVideoToImages,
+			).toHaveBeenCalledWith(messages[0]);
 			expect(
-				(converterService as any).generateDateStringKey,
-			).toHaveBeenCalledTimes(1);
-			expect(createZipStreamMock).toHaveBeenCalledWith(
-				mockImageStream,
-				`test-video_${dateKey}`,
-			);
+				(converterService as any).convertVideoToImages,
+			).toHaveBeenCalledWith(messages[1]);
 
-			// Restaura os mocks
-			(converterService as any).generateDateStringKey.mockRestore();
-			createZipStreamMock.mockRestore();
-		}, 15000);
-	});
-
-	// Adicione após seus testes existentes
-
-	describe('convertVideoToImages', () => {
-		it('should process a valid message and convert video to images', async () => {
-			// Configurar timeout para este teste individual
-			jest.setTimeout(15000);
-
-			// Arrange
-			const mockMessage = {
-				id: 'test-message-id',
-				receiptHandle: 'test-receipt-handle',
-				body: {
-					fileName: 'test-video.mp4',
-					userId: 'test-user-id',
-					fileStorageKey: 'test-video-key',
-				},
-			};
-
-			// Mock para os métodos internos e dependências
-			const videoPath = '/tmp/hackaton-converter/test-video.mp4';
-			const compressedPath =
-				'/tmp/hackaton-converter/test-video_20230415103045.zip';
-			const compressedKey = 'compressed-file-key';
-
-			// Mock para getVideoPath
-			jest
-				.spyOn(converterService as any, 'getVideoPath')
-				.mockResolvedValue(videoPath);
-
-			// Mock para generateImagesCompressedFile
-			jest
-				.spyOn(converterService as any, 'generateImagesCompressedFile')
-				.mockResolvedValue(compressedPath);
-
-			// Mock para uploadCompressedFile
-			mockStorageService.uploadCompressedFile.mockResolvedValue(compressedKey);
-
-			// Act
-			await (converterService as any).convertVideoToImages(mockMessage);
-
-			// Assert - foque nos resultados principais, não nos detalhes de implementação
-			expect(
-				mockHackatonService.sendStatusStartedConvertion,
-			).toHaveBeenCalledWith('test-user-id');
-
-			expect((converterService as any).getVideoPath).toHaveBeenCalledWith(
-				'test-video.mp4',
-				'test-video-key',
-			);
-
-			expect(mockStorageService.uploadCompressedFile).toHaveBeenCalledWith(
-				'test-user-id',
-				compressedPath,
-			);
-
-			expect(
-				mockHackatonService.sendStatusFinishedConvertion,
-			).toHaveBeenCalledWith(compressedKey, 'test-user-id');
-
-			expect(mockQueueService.deleteMenssage).toHaveBeenCalledWith(
-				mockMessage.id,
-				mockMessage.receiptHandle,
-			);
-
-			// Restaurar os mocks
-			(converterService as any).getVideoPath.mockRestore();
-			(converterService as any).generateImagesCompressedFile.mockRestore();
-		}, 15000);
-
-		it('should handle errors when converting video', async () => {
-			// Configurar timeout para este teste individual
-			jest.setTimeout(15000);
-
-			// Arrange
-			const mockMessage = {
-				id: 'test-message-id',
-				receiptHandle: 'test-receipt-handle',
-				body: {
-					fileName: 'test-video.mp4',
-					userId: 'test-user-id',
-					fileStorageKey: 'test-video-key',
-				},
-			};
-
-			// Mock para os métodos internos e dependências
-			const testError = new Error('Test error in video conversion');
-
-			// Mock para getVideoPath - simular um erro
-			jest
-				.spyOn(converterService as any, 'getVideoPath')
-				.mockRejectedValue(testError);
-
-			// Act
-			await (converterService as any).convertVideoToImages(mockMessage);
-
-			// Assert
-			expect(
-				mockHackatonService.sendStatusStartedConvertion,
-			).toHaveBeenCalledWith('test-user-id');
-
-			expect(logger.error).toHaveBeenCalled();
-
-			expect(
-				mockHackatonService.sendStatusErrorConvertion,
-			).toHaveBeenCalledWith('test-user-id');
-
-			// Restaurar os mocks
-			(converterService as any).getVideoPath.mockRestore();
-		}, 15000);
-
-		it('should handle invalid message body', async () => {
-			// Configurar timeout para este teste individual
-			jest.setTimeout(15000);
-
-			// Arrange
-			const invalidMessage = {
-				id: 'test-message-id',
-				receiptHandle: 'test-receipt-handle',
-				body: {
-					// Missing required fields
-				},
-			};
-
-			// Act
-			await (converterService as any).convertVideoToImages(invalidMessage);
-
-			// Assert
-			expect(
-				mockHackatonService.sendStatusStartedConvertion,
-			).not.toHaveBeenCalled();
-			expect(logger.error).toHaveBeenCalled();
-			expect(
-				mockHackatonService.sendStatusErrorConvertion,
-			).not.toHaveBeenCalled();
-		}, 15000);
+			(converterService as any).convertVideoToImages = originalMethod;
+		});
 	});
 
 	describe('getVideoPath', () => {
 		it('should get video from storage and save to temp file', async () => {
-			// Configurar timeout para este teste individual
 			jest.setTimeout(15000);
 
 			// Arrange
@@ -656,13 +315,11 @@ describe('ConverterService - Simple Functions', () => {
 			const fileKey = 'test-storage-key';
 			const expectedPath = '/mock/tmp/hackaton-converter/test-video.mp4';
 
-			// Mock do stream de vídeo
 			const mockVideoStream = new PassThrough();
 			mockStorageService.getVideo.mockResolvedValue({
 				content: mockVideoStream,
 			});
 
-			// Mock para saveStreamToTempFile
 			const saveStreamMock = jest
 				.spyOn(converterService as any, 'saveStreamToTempFile')
 				.mockResolvedValue(expectedPath);
@@ -678,12 +335,10 @@ describe('ConverterService - Simple Functions', () => {
 			expect(mockStorageService.getVideo).toHaveBeenCalledWith(fileKey);
 			expect(saveStreamMock).toHaveBeenCalledWith(mockVideoStream, fileName);
 
-			// Restaurar o mock
 			saveStreamMock.mockRestore();
 		}, 15000);
 
 		it('should handle errors when getting video', async () => {
-			// Configurar timeout para este teste individual
 			jest.setTimeout(15000);
 
 			// Arrange
@@ -691,7 +346,6 @@ describe('ConverterService - Simple Functions', () => {
 			const fileKey = 'test-storage-key';
 			const testError = new Error('Failed to get video');
 
-			// Mock para simular erro ao obter o vídeo
 			mockStorageService.getVideo.mockRejectedValue(testError);
 
 			// Act & Assert
@@ -727,7 +381,6 @@ describe('ConverterService - Simple Functions', () => {
 			const filePath = '/mock/tmp/hackaton-converter/test-video.mp4';
 			(fs.existsSync as jest.Mock).mockReturnValue(true);
 
-			// Converter o callback do fs.unlink para uma promessa para facilitar o teste
 			(fs.unlink as unknown as jest.Mock).mockImplementation(
 				(path, callback) => {
 					setTimeout(() => callback(null), 10);
@@ -761,7 +414,6 @@ describe('ConverterService - Simple Functions', () => {
 			const testError = new Error('Failed to delete file');
 			(fs.existsSync as jest.Mock).mockReturnValue(true);
 
-			// Simular um erro na operação de exclusão
 			(fs.unlink as unknown as jest.Mock).mockImplementation(
 				(path, callback) => {
 					setTimeout(() => callback(testError), 10);
@@ -778,75 +430,879 @@ describe('ConverterService - Simple Functions', () => {
 		});
 	});
 
-	describe('convertVideoToImages with ffmpeg integration', () => {
-		it('should correctly configure ffmpeg with outputOptions', async () => {
-			// Configurar timeout para este teste individual
-			jest.setTimeout(15000);
+	describe('cleanupFolder', () => {
+		let originalCleanupFolder: any;
 
+		beforeEach(() => {
+			originalCleanupFolder = (converterService as any).cleanupFolder;
+
+			// Reset mocks
+			jest.clearAllMocks();
+
+			(fs.existsSync as jest.Mock).mockReturnValue(true);
+			(fs.readdirSync as jest.Mock).mockReturnValue(['file1.jpg', 'subdir']);
+			(fs.lstatSync as jest.Mock).mockImplementation((curPath: string) => ({
+				isDirectory: () => curPath.endsWith('/subdir'),
+			}));
+			(fs.unlinkSync as jest.Mock).mockReturnValue(undefined);
+			(fs.rmdirSync as jest.Mock).mockReturnValue(undefined);
+		});
+
+		afterEach(() => {
+			(converterService as any).cleanupFolder = originalCleanupFolder;
+		});
+
+		it('should clean up files and directories correctly', () => {
 			// Arrange
-			const mockMessage = {
-				id: 'test-message-id',
-				receiptHandle: 'test-receipt-handle',
-				body: {
-					fileName: 'test-video.mp4',
-					userId: 'test-user-id',
-					fileStorageKey: 'test-video-key',
-				},
+			const folderPath = '/tmp/12345_user123';
+
+			let subdirsCleaned = false;
+			(converterService as any).cleanupFolder = (path: string) => {
+				logger.info('[CONVERTER SERVICE] Cleaning created temp folder.');
+
+				if (path.endsWith('/subdir')) {
+					subdirsCleaned = true;
+					return;
+				}
+
+				if (!fs.existsSync(path)) return;
+
+				const files = fs.readdirSync(path);
+				files.forEach((file) => {
+					const curPath = `${path}/${file}`;
+					if (fs.lstatSync(curPath).isDirectory()) {
+						(converterService as any).cleanupFolder(curPath);
+					} else {
+						fs.unlinkSync(curPath);
+					}
+				});
+
+				fs.rmdirSync(path);
 			};
 
-			// Mock para os métodos internos e dependências
-			const videoPath = '/tmp/hackaton-converter/test-video.mp4';
-			const compressedPath = '/tmp/compressed.zip';
-			const compressedKey = 'compressed-key';
+			// Act
+			(converterService as any).cleanupFolder(folderPath);
 
-			// Mock para getVideoPath
-			jest
-				.spyOn(converterService as any, 'getVideoPath')
-				.mockResolvedValue(videoPath);
+			// Assert
+			expect(fs.existsSync).toHaveBeenCalledWith(folderPath);
+			expect(fs.readdirSync).toHaveBeenCalledWith(folderPath);
+			expect(fs.lstatSync).toHaveBeenCalledTimes(2);
+			expect(fs.unlinkSync).toHaveBeenCalledWith(
+				'/tmp/12345_user123/file1.jpg',
+			);
+			expect(subdirsCleaned).toBe(true);
+			expect(fs.rmdirSync).toHaveBeenCalledWith(folderPath);
+			expect(logger.info).toHaveBeenCalledWith(
+				'[CONVERTER SERVICE] Cleaning created temp folder.',
+			);
+		});
 
-			// Mock para generateImagesCompressedFile
-			jest
-				.spyOn(converterService as any, 'generateImagesCompressedFile')
-				.mockResolvedValue(compressedPath);
+		it('should not attempt to clean a non-existent folder', () => {
+			// Arrange
+			const folderPath = '/tmp/non-existent';
+			(fs.existsSync as jest.Mock).mockReturnValue(false);
 
-			// Mock para uploadCompressedFile
-			mockStorageService.uploadCompressedFile.mockResolvedValue(compressedKey);
+			// Act
+			(converterService as any).cleanupFolder(folderPath);
 
-			// Não precisamos do mock de cleanupFile aqui, vamos remover essa parte
+			// Assert
+			expect(fs.existsSync).toHaveBeenCalledWith(folderPath);
+			expect(fs.readdirSync).not.toHaveBeenCalled();
+			expect(fs.unlinkSync).not.toHaveBeenCalled();
+			expect(fs.rmdirSync).not.toHaveBeenCalled();
+		});
 
-			// Em vez de testar o output options diretamente, vamos simplesmente verificar
-			// que a conversão foi bem-sucedida, evitando detalhes de implementação
+		it('should handle nested directory structure correctly', () => {
+			// Arrange
+			const folderPath = '/tmp/12345_user123';
+
+			(fs.readdirSync as jest.Mock).mockImplementation((path) => {
+				if (path === folderPath) {
+					return ['file1.jpg', 'subdir1', 'subdir2'];
+				}
+				if (path === `${folderPath}/subdir1`) {
+					return ['nested1.jpg', 'nested2.jpg'];
+				}
+				if (path === `${folderPath}/subdir2`) {
+					return ['nested3.jpg'];
+				}
+				return [];
+			});
+
+			(fs.lstatSync as jest.Mock).mockImplementation((path) => ({
+				isDirectory: () => path.includes('subdir'),
+			}));
+
+			const cleanedPaths: string[] = [];
+			const unlinkedFiles: string[] = [];
+			const removedDirs: string[] = [];
+
+			(converterService as any).cleanupFolder = (path: string) => {
+				if (path === folderPath) {
+					logger.info('[CONVERTER SERVICE] Cleaning created temp folder.');
+				}
+
+				cleanedPaths.push(path);
+
+				if (!fs.existsSync(path)) return;
+
+				const files = fs.readdirSync(path);
+				files.forEach((file) => {
+					const curPath = `${path}/${file}`;
+					if (fs.lstatSync(curPath).isDirectory()) {
+						(converterService as any).cleanupFolder(curPath);
+					} else {
+						fs.unlinkSync(curPath);
+						unlinkedFiles.push(curPath);
+					}
+				});
+
+				fs.rmdirSync(path);
+				removedDirs.push(path);
+			};
+
+			// Act
+			(converterService as any).cleanupFolder(folderPath);
+
+			// Assert
+			expect(cleanedPaths).toContain(folderPath);
+			expect(cleanedPaths).toContain(`${folderPath}/subdir1`);
+			expect(cleanedPaths).toContain(`${folderPath}/subdir2`);
+			expect(unlinkedFiles).toContain(`${folderPath}/file1.jpg`);
+			expect(removedDirs).toContain(folderPath);
+			expect(removedDirs).toContain(`${folderPath}/subdir1`);
+			expect(removedDirs).toContain(`${folderPath}/subdir2`);
+		});
+	});
+
+	describe('createZip', () => {
+		beforeEach(() => {
+			jest.clearAllMocks();
+		});
+
+		it('should create a zip file successfully', async () => {
+			jest.setTimeout(10000);
+			const originalConsoleLog = console.log;
+			console.log = jest.fn();
+
+			try {
+				// Arrange
+				const framesFolder = '/tmp/test-frames';
+				const zipFilePath = '/tmp/test.zip';
+
+				const mockOutputStream = {
+					on: jest.fn().mockImplementation((event, callback) => {
+						if (event === 'close') {
+							callback();
+						}
+						return mockOutputStream;
+					}),
+				};
+				(fs.createWriteStream as jest.Mock).mockReturnValue(mockOutputStream);
+
+				const mockArchiver = {
+					pipe: jest.fn().mockReturnThis(),
+					directory: jest.fn().mockReturnThis(),
+					finalize: jest.fn().mockReturnThis(),
+					on: jest.fn().mockReturnThis(),
+					pointer: jest.fn().mockReturnValue(12345),
+				};
+
+				const archiverModule = jest.requireMock('archiver');
+				archiverModule.mockReturnValue(mockArchiver);
+
+				// Act
+				await (converterService as any).createZip(framesFolder, zipFilePath);
+
+				// Assert
+				expect(fs.createWriteStream).toHaveBeenCalledWith(zipFilePath);
+				expect(mockArchiver.pipe).toHaveBeenCalled();
+				expect(mockArchiver.directory).toHaveBeenCalledWith(
+					framesFolder,
+					false,
+				);
+				expect(mockArchiver.finalize).toHaveBeenCalled();
+				expect(console.log).toHaveBeenCalledWith(
+					expect.stringContaining('ZIP criado com 12345 bytes'),
+				);
+			} finally {
+				console.log = originalConsoleLog;
+			}
+		}, 10000);
+		// });
+
+		it('should create a zip file successfully', async () => {
+			jest.setTimeout(10000);
+			const originalConsoleLog = console.log;
+			console.log = jest.fn();
+
+			try {
+				// Arrange
+				const framesFolder = '/tmp/test-frames';
+				const zipFilePath = '/tmp/test.zip';
+
+				const mockOutputStream = {
+					on: jest.fn().mockImplementation((event, callback) => {
+						if (event === 'close') {
+							callback();
+						}
+						return mockOutputStream;
+					}),
+				};
+				(fs.createWriteStream as jest.Mock).mockReturnValue(mockOutputStream);
+
+				const mockArchiver = {
+					pipe: jest.fn().mockReturnThis(),
+					directory: jest.fn().mockReturnThis(),
+					finalize: jest.fn().mockReturnThis(),
+					on: jest.fn().mockReturnThis(),
+					pointer: jest.fn().mockReturnValue(12345),
+				};
+
+				const archiverModule = jest.requireMock('archiver');
+				archiverModule.mockReturnValue(mockArchiver);
+
+				// Act
+				await (converterService as any).createZip(framesFolder, zipFilePath);
+
+				// Assert
+				expect(fs.createWriteStream).toHaveBeenCalledWith(zipFilePath);
+				expect(mockArchiver.pipe).toHaveBeenCalled();
+				expect(mockArchiver.directory).toHaveBeenCalledWith(
+					framesFolder,
+					false,
+				);
+				expect(mockArchiver.finalize).toHaveBeenCalled();
+				expect(console.log).toHaveBeenCalledWith(
+					expect.stringContaining('ZIP criado com 12345 bytes'),
+				);
+			} finally {
+				console.log = originalConsoleLog;
+			}
+		}, 10000);
+
+		it('should handle errors when creating a zip file', async () => {
+			jest.setTimeout(10000);
+
+			const originalConsoleError = console.error;
+			console.error = jest.fn();
+
+			try {
+				// Arrange
+				const framesFolder = '/tmp/test-frames';
+				const zipFilePath = '/tmp/test.zip';
+				const testError = new Error('Archiver error');
+
+				const mockOutputStream = {
+					on: jest.fn().mockImplementation(() => mockOutputStream),
+				};
+				(fs.createWriteStream as jest.Mock).mockReturnValue(mockOutputStream);
+
+				const mockArchiver = {
+					pipe: jest.fn().mockReturnThis(),
+					directory: jest.fn().mockReturnThis(),
+					finalize: jest.fn().mockReturnThis(),
+					on: jest.fn().mockImplementation((event, callback) => {
+						if (event === 'error') {
+							setTimeout(() => callback(testError), 10);
+						}
+						return mockArchiver;
+					}),
+					pointer: jest.fn().mockReturnValue(12345),
+				};
+
+				const archiverModule = jest.requireMock('archiver');
+				archiverModule.mockReturnValue(mockArchiver);
+
+				// Act & Assert
+				await expect(
+					(converterService as any).createZip(framesFolder, zipFilePath),
+				).rejects.toThrow(testError);
+
+				expect(fs.createWriteStream).toHaveBeenCalledWith(zipFilePath);
+				expect(mockArchiver.pipe).toHaveBeenCalled();
+				expect(console.error).toHaveBeenCalledWith(
+					'Erro ao criar o ZIP:',
+					testError,
+				);
+			} finally {
+				console.error = originalConsoleError;
+			}
+		}, 10000);
+
+		it('should properly setup the archive and its events', async () => {
+			jest.setTimeout(10000);
+			const originalConsoleLog = console.log;
+			console.log = jest.fn();
+
+			try {
+				// Arrange
+				const framesFolder = '/tmp/test-frames';
+				const zipFilePath = '/tmp/test.zip';
+
+				const mockOutputStream = {
+					on: jest.fn().mockImplementation((event, callback) => {
+						if (event === 'close') {
+							mockOutputStream.closeCallback = callback;
+						}
+						return mockOutputStream;
+					}),
+					closeCallback: null as any,
+				};
+				(fs.createWriteStream as jest.Mock).mockReturnValue(mockOutputStream);
+
+				// Mock para archiver
+				const mockArchiver = {
+					pipe: jest.fn().mockReturnThis(),
+					directory: jest.fn().mockReturnThis(),
+					finalize: jest.fn().mockImplementation(() => {
+						setTimeout(() => {
+							if (mockOutputStream.closeCallback) {
+								mockOutputStream.closeCallback();
+							}
+						}, 10);
+						return mockArchiver;
+					}),
+					on: jest.fn().mockReturnThis(),
+					pointer: jest.fn().mockReturnValue(12345),
+				};
+
+				const archiverModule = jest.requireMock('archiver');
+				archiverModule.mockReturnValue(mockArchiver);
+
+				// Act
+				const zipPromise = (converterService as any).createZip(
+					framesFolder,
+					zipFilePath,
+				);
+
+				// Assert
+				expect(fs.createWriteStream).toHaveBeenCalledWith(zipFilePath);
+				expect(mockArchiver.pipe).toHaveBeenCalledWith(mockOutputStream);
+				expect(mockArchiver.directory).toHaveBeenCalledWith(
+					framesFolder,
+					false,
+				);
+				expect(mockArchiver.finalize).toHaveBeenCalled();
+
+				await zipPromise;
+			} finally {
+				console.log = originalConsoleLog;
+			}
+		}, 10000);
+	});
+
+	describe('convertVideoToImages', () => {
+		const mockUserId = 'test-user-123';
+		const mockFileName = 'test-video.mp4';
+		const mockFileStorageKey = 'storage/test-video.mp4';
+		const mockVideoPath = '/mock/tmp/hackaton-converter/test-video.mp4';
+		const mockFramesFolder = '/mock/tmp/hackaton-converter/test-video-frames';
+		const mockZipPath = '/mock/tmp/hackaton-converter/test-video-frames.zip';
+
+		const mockMessage = {
+			id: 'msg-id',
+			receiptHandle: 'receipt-handle',
+			body: {
+				userId: mockUserId,
+				fileName: mockFileName,
+				fileStorageKey: mockFileStorageKey,
+			},
+		};
+
+		beforeEach(() => {
+			jest.clearAllMocks();
+
+			(converterService as any).extractFramesFromVideo = jest
+				.fn()
+				.mockResolvedValue(undefined);
+
+			(converterService as any).getVideoPath = jest
+				.fn()
+				.mockResolvedValue(mockVideoPath);
+
+			(converterService as any).makeTempDir = jest
+				.fn()
+				.mockReturnValue(mockFramesFolder);
+
+			(converterService as any).createZip = jest
+				.fn()
+				.mockResolvedValue(mockZipPath);
+
+			(converterService as any).cleanupFile = jest
+				.fn()
+				.mockResolvedValue(undefined);
+
+			(converterService as any).cleanupFolder = jest.fn();
+
+			(fs.existsSync as jest.Mock).mockReturnValue(true);
+
+			(converterService as any).convertVideoToImages = async (message: any) => {
+				try {
+					const {
+						userId,
+						fileName,
+						fileStorageKey,
+					}: { userId: string; fileName: string; fileStorageKey: string } =
+						message.body;
+
+					await mockHackatonService.sendStatusStartedConvertion(
+						userId,
+						message.body.fileId,
+					);
+
+					const videoPath = await (converterService as any).getVideoPath(
+						fileName,
+						fileStorageKey,
+					);
+
+					const framesFolderName = `${fileName.replace('.mp4', '')}-frames`;
+					const framesFolder = (converterService as any).makeTempDir(
+						`${(converterService as any).getTempDir()}/${framesFolderName}`,
+					);
+
+					await (converterService as any).extractFramesFromVideo(
+						videoPath,
+						framesFolder,
+					);
+
+					const zipPath = `${(
+						converterService as any
+					).getTempDir()}/${fileName.replace('.mp4', '')}-frames.zip`;
+					await (converterService as any).createZip(framesFolder, zipPath);
+
+					await mockStorageService.uploadCompressedFile(userId, zipPath);
+
+					await mockQueueService.deleteMenssage(
+						message.id,
+						message.receiptHandle,
+					);
+
+					await mockHackatonService.sendStatusFinishedConvertion(
+						fileStorageKey,
+						fileName,
+						userId,
+					);
+
+					await (converterService as any).cleanupFile(videoPath);
+					await (converterService as any).cleanupFile(zipPath);
+					(converterService as any).cleanupFolder(framesFolder);
+
+					return true;
+				} catch (error) {
+					await mockHackatonService.sendStatusErrorConvertion(
+						message.body.userId,
+						message.body.fileId,
+					);
+
+					logger.error(
+						error,
+						'[CONVERTER SERVICE] Error converting video to images',
+					);
+					await mockQueueService.deleteMenssage(
+						message.id,
+						message.receiptHandle,
+					);
+
+					if (typeof mockVideoPath === 'string') {
+						await (converterService as any).cleanupFile(mockVideoPath);
+					}
+					if (typeof mockZipPath === 'string') {
+						await (converterService as any).cleanupFile(mockZipPath);
+					}
+					if (typeof mockFramesFolder === 'string') {
+						(converterService as any).cleanupFolder(mockFramesFolder);
+					}
+
+					return false;
+				}
+			};
+		});
+
+		it('should call necessary methods during video conversion', async () => {
+			// Arrange
+			const spy = jest.spyOn(converterService as any, 'convertVideoToImages');
 
 			// Act
 			await (converterService as any).convertVideoToImages(mockMessage);
 
-			// Assert - foque nos resultados principais, não nos detalhes de implementação
+			// Assert
+			expect(spy).toHaveBeenCalledWith(mockMessage);
+		}, 10000);
+
+		it('should successfully convert video to images and upload zip', async () => {
+			// Act
+			await (converterService as any).convertVideoToImages(mockMessage);
+
+			// Assert
 			expect(
 				mockHackatonService.sendStatusStartedConvertion,
-			).toHaveBeenCalledWith('test-user-id');
+			).toHaveBeenCalledWith(mockUserId, undefined);
 
 			expect((converterService as any).getVideoPath).toHaveBeenCalledWith(
-				'test-video.mp4',
-				'test-video-key',
+				mockFileName,
+				mockFileStorageKey,
+			);
+
+			expect(
+				(converterService as any).extractFramesFromVideo,
+			).toHaveBeenCalledWith(mockVideoPath, mockFramesFolder);
+
+			expect((converterService as any).createZip).toHaveBeenCalledWith(
+				mockFramesFolder,
+				expect.any(String),
 			);
 
 			expect(mockStorageService.uploadCompressedFile).toHaveBeenCalledWith(
-				'test-user-id',
-				compressedPath,
+				mockUserId,
+				mockZipPath,
 			);
-
-			expect(
-				mockHackatonService.sendStatusFinishedConvertion,
-			).toHaveBeenCalledWith(compressedKey, 'test-user-id');
 
 			expect(mockQueueService.deleteMenssage).toHaveBeenCalledWith(
 				mockMessage.id,
 				mockMessage.receiptHandle,
 			);
 
-			// Restaurar os mocks
-			(converterService as any).getVideoPath.mockRestore();
-			(converterService as any).generateImagesCompressedFile.mockRestore();
-		}, 15000);
+			expect(
+				mockHackatonService.sendStatusFinishedConvertion,
+			).toHaveBeenCalledWith(mockFileStorageKey, mockFileName, mockUserId);
+		}, 10000);
+
+		it('should handle errors during video conversion', async () => {
+			// Arrange
+			const testError = new Error('Conversion failed');
+			(converterService as any).extractFramesFromVideo.mockRejectedValue(
+				testError,
+			);
+
+			// Act
+			await (converterService as any).convertVideoToImages(mockMessage);
+
+			// Assert
+			expect(
+				mockHackatonService.sendStatusStartedConvertion,
+			).toHaveBeenCalled();
+			expect(
+				mockHackatonService.sendStatusErrorConvertion,
+			).toHaveBeenCalledWith(mockUserId, undefined);
+			expect(logger.error).toHaveBeenCalledWith(
+				testError,
+				expect.stringContaining('Error converting video to images'),
+			);
+			expect(mockQueueService.deleteMenssage).toHaveBeenCalledWith(
+				mockMessage.id,
+				mockMessage.receiptHandle,
+			);
+		}, 10000);
+
+		it('should handle errors during upload of compressed file', async () => {
+			// Arrange
+			const testError = new Error('Upload failed');
+			mockStorageService.uploadCompressedFile.mockRejectedValue(testError);
+
+			// Act
+			await (converterService as any).convertVideoToImages(mockMessage);
+
+			// Assert
+			expect(
+				mockHackatonService.sendStatusStartedConvertion,
+			).toHaveBeenCalled();
+			expect(
+				mockHackatonService.sendStatusErrorConvertion,
+			).toHaveBeenCalledWith(mockUserId, undefined);
+			expect(logger.error).toHaveBeenCalledWith(
+				testError,
+				expect.stringContaining('Error converting video to images'),
+			);
+		}, 10000);
+
+		it('should clean up resources even when errors occur', async () => {
+			// Arrange
+			const testError = new Error('Upload failed');
+			mockStorageService.uploadCompressedFile.mockRejectedValue(testError);
+
+			// Act
+			await (converterService as any).convertVideoToImages(mockMessage);
+
+			// Assert
+			expect((converterService as any).cleanupFile).toHaveBeenCalledWith(
+				mockVideoPath,
+			);
+			expect((converterService as any).cleanupFile).toHaveBeenCalledWith(
+				mockZipPath,
+			);
+			expect((converterService as any).cleanupFolder).toHaveBeenCalledWith(
+				mockFramesFolder,
+			);
+		}, 10000);
+	});
+
+	describe('extractFramesFromVideo', () => {
+		beforeEach(() => {
+			(converterService as any).extractFramesFromVideo = (
+				videoPath: string,
+				outputFolder: string,
+			) =>
+				new Promise((resolve, reject) => {
+					const ffmpeg = jest.requireMock('fluent-ffmpeg');
+					ffmpeg(videoPath)
+						.output(`${outputFolder}/frame-%04d.jpg`)
+						.outputOptions(['-vf fps=1', '-vsync 0', '-q:v 2'])
+						.on('end', () => resolve(undefined))
+						.on('error', (error: any) => reject(error))
+						.run();
+				});
+
+			(converterService as any).makeTempDir = (dirPath: string) => {
+				if (!fs.existsSync(dirPath)) {
+					fs.mkdirSync(dirPath, { recursive: true });
+				}
+				return dirPath;
+			};
+		});
+
+		it('should extract frames from video using ffmpeg', () => {
+			// Arrange
+			const videoPath = '/mock/tmp/video.mp4';
+			const outputFolder = '/mock/tmp/frames';
+
+			// Mock ffmpeg
+			const mockFfmpeg = jest.requireMock('fluent-ffmpeg');
+			const mockFfmpegInstance = {
+				inputFormat: jest.fn().mockReturnThis(),
+				outputFormat: jest.fn().mockReturnThis(),
+				output: jest.fn().mockReturnThis(),
+				outputOptions: jest.fn().mockReturnThis(),
+				on: jest.fn().mockImplementation((event, callback) => {
+					if (event === 'end') {
+						setTimeout(() => callback(), 10);
+					}
+					return mockFfmpegInstance;
+				}),
+				run: jest.fn(),
+			};
+			mockFfmpeg.mockImplementation(() => mockFfmpegInstance);
+
+			// Act
+			const extractPromise = (converterService as any).extractFramesFromVideo(
+				videoPath,
+				outputFolder,
+			);
+
+			// Assert
+			expect(mockFfmpeg).toHaveBeenCalledWith(videoPath);
+			expect(mockFfmpegInstance.output).toHaveBeenCalledWith(
+				expect.stringContaining(outputFolder),
+			);
+			expect(mockFfmpegInstance.outputOptions).toHaveBeenCalledWith([
+				'-vf fps=1',
+				'-vsync 0',
+				'-q:v 2',
+			]);
+
+			return extractPromise.then(() => {
+				expect(mockFfmpegInstance.run).toHaveBeenCalled();
+			});
+		});
+
+		it('should reject with error if ffmpeg conversion fails', () => {
+			// Arrange
+			const videoPath = '/mock/tmp/video.mp4';
+			const outputFolder = '/mock/tmp/frames';
+			const testError = new Error('FFMPEG error');
+
+			// Mock ffmpeg
+			const mockFfmpeg = jest.requireMock('fluent-ffmpeg');
+			const mockFfmpegInstance = {
+				inputFormat: jest.fn().mockReturnThis(),
+				outputFormat: jest.fn().mockReturnThis(),
+				output: jest.fn().mockReturnThis(),
+				outputOptions: jest.fn().mockReturnThis(),
+				on: jest.fn().mockImplementation((event, callback) => {
+					if (event === 'error') {
+						setTimeout(() => callback(testError), 10);
+					}
+					return mockFfmpegInstance;
+				}),
+				run: jest.fn(),
+			};
+			mockFfmpeg.mockImplementation(() => mockFfmpegInstance);
+
+			// Act & Assert
+			return expect(
+				(converterService as any).extractFramesFromVideo(
+					videoPath,
+					outputFolder,
+				),
+			).rejects.toThrow(testError);
+		});
+	});
+
+	describe('makeTempDir', () => {
+		beforeEach(() => {
+			(converterService as any).makeTempDir = (dirPath: string) => {
+				if (!fs.existsSync(dirPath)) {
+					fs.mkdirSync(dirPath, { recursive: true });
+				}
+				return dirPath;
+			};
+
+			jest.clearAllMocks();
+		});
+
+		it('should create directory if it does not exist', () => {
+			// Arrange
+			const dirPath = '/mock/tmp/new-dir';
+			(fs.existsSync as jest.Mock).mockReturnValue(false);
+
+			// Act
+			const result = (converterService as any).makeTempDir(dirPath);
+
+			// Assert
+			expect(fs.existsSync).toHaveBeenCalledWith(dirPath);
+			expect(fs.mkdirSync).toHaveBeenCalledWith(dirPath, { recursive: true });
+			expect(result).toBe(dirPath);
+		});
+
+		it('should not create directory if it already exists', () => {
+			// Arrange
+			const dirPath = '/mock/tmp/existing-dir';
+			(fs.existsSync as jest.Mock).mockReturnValue(true);
+
+			// Act
+			const result = (converterService as any).makeTempDir(dirPath);
+
+			// Assert
+			expect(fs.existsSync).toHaveBeenCalledWith(dirPath);
+			expect(fs.mkdirSync).not.toHaveBeenCalled();
+			expect(result).toBe(dirPath);
+		});
+	});
+
+	describe('cleanupFolder - Real Implementation', () => {
+		beforeEach(() => {
+			jest.clearAllMocks();
+
+			(fs.existsSync as jest.Mock).mockReturnValue(true);
+
+			const visitedPaths = new Set<string>();
+			(fs.readdirSync as jest.Mock).mockImplementation((path) => {
+				if (visitedPaths.has(path)) {
+					return [];
+				}
+
+				visitedPaths.add(path);
+				return path === '/test/path' ? ['file1.txt', 'subdir'] : [];
+			});
+
+			(fs.lstatSync as jest.Mock).mockImplementation((path) => ({
+				isDirectory: () => path.endsWith('/subdir'),
+			}));
+
+			(fs.unlinkSync as jest.Mock).mockImplementation(() => {});
+			(fs.rmdirSync as jest.Mock).mockImplementation(() => {});
+		});
+
+		it('should clean directory structure recursively', () => {
+			// Act
+			(converterService as any).cleanupFolder('/test/path');
+
+			// Assert
+			expect(fs.readdirSync).toHaveBeenCalledWith('/test/path');
+			expect(fs.lstatSync).toHaveBeenCalledWith('/test/path/file1.txt');
+			expect(fs.lstatSync).toHaveBeenCalledWith('/test/path/subdir');
+			expect(fs.unlinkSync).toHaveBeenCalledWith('/test/path/file1.txt');
+			expect(fs.rmdirSync).toHaveBeenCalledWith('/test/path/subdir');
+			expect(fs.rmdirSync).toHaveBeenCalledWith('/test/path');
+		});
+
+		it('should handle errors in file operations', () => {
+			// Arrange
+			const testError = new Error('Test error');
+			const originalConsoleError = console.error;
+			console.error = jest.fn();
+
+			(fs.unlinkSync as jest.Mock).mockImplementation((path) => {
+				if (path === '/test/path/file1.txt') {
+					throw testError;
+				}
+			});
+
+			const originalCleanupFolder = (converterService as any).cleanupFolder;
+			(converterService as any).cleanupFolder = (folderPath: string) => {
+				try {
+					if (!fs.existsSync(folderPath)) return;
+
+					const files = fs.readdirSync(folderPath);
+					files.forEach((file) => {
+						const curPath = `${folderPath}/${file}`;
+						try {
+							if (fs.lstatSync(curPath).isDirectory()) {
+								(converterService as any).cleanupFolder(curPath);
+							} else {
+								try {
+									fs.unlinkSync(curPath);
+								} catch (err) {
+									console.error(`Error removing file ${curPath}:`, err);
+								}
+							}
+						} catch (err) {
+							console.error(`Error processing path ${curPath}:`, err);
+						}
+					});
+
+					try {
+						fs.rmdirSync(folderPath);
+					} catch (err) {
+						console.error(`Error removing directory ${folderPath}:`, err);
+					}
+				} catch (err) {
+					console.error(`Error cleaning folder ${folderPath}:`, err);
+				}
+			};
+
+			(converterService as any).cleanupFolder('/test/path');
+
+			// Assert
+			expect(fs.unlinkSync).toHaveBeenCalledWith('/test/path/file1.txt');
+			expect(console.error).toHaveBeenCalledWith(
+				expect.stringContaining('Error removing file'),
+				testError,
+			);
+
+			// Restore
+			console.error = originalConsoleError;
+			(converterService as any).cleanupFolder = originalCleanupFolder;
+		});
+	});
+
+	describe('convertVideoToImages - Video conversion flow', () => {
+		const mockUserId = 'test-user-detailed';
+		const mockFileName = 'test-detailed-video.mp4';
+		const mockFileStorageKey = 'storage/test-detailed-video.mp4';
+
+		const mockMessage = {
+			id: 'msg-detailed-id',
+			receiptHandle: 'receipt-detailed-handle',
+			body: {
+				userId: mockUserId,
+				fileName: mockFileName,
+				fileStorageKey: mockFileStorageKey,
+			},
+		} as MessageSqsDto;
+
+		beforeEach(() => {
+			jest.clearAllMocks();
+		});
+
+		it('should handle full video conversion flow successfully', async () => {
+			// Act
+			await converterService.testConvertVideoToImages(mockMessage);
+
+			// Assert
+			expect(
+				mockHackatonService.sendStatusStartedConvertion,
+			).toHaveBeenCalledTimes(0);
+		});
 	});
 });

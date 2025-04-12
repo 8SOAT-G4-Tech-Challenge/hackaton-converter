@@ -22,14 +22,13 @@ export class HackatonApiImpl implements HackatonApi {
 		convertionNotificationDto: ConvertionNotificationDto
 	): Promise<void> {
 		try {
-			const url = `${process.env.HACKATON_API_BASE_URL}/notifications`;
 			logger.info(
-				`Sending status of convertion ${convertionNotificationDto.status} to user ${convertionNotificationDto.userId} - path: ${url}`
+				`Sending status of convertion ${convertionNotificationDto.status} to user ${convertionNotificationDto.userId}`
 			);
-			// await axios.post(
-			// 	url,
-			// 	convertionNotificationDto
-			// );
+			await axios.put(
+				`${process.env.HACKATON_API_BASE_URL}/files/${convertionNotificationDto.fileId}`,
+				convertionNotificationDto
+			);
 		} catch (error) {
 			logger.error('Error sending status of convertion');
 			throw error;

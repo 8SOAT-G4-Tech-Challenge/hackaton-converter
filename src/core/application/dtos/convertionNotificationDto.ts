@@ -7,13 +7,12 @@ export class ConvertionNotificationDto {
 
 	userId: string;
 
-	constructor(
-		status: ConvertionStatusEnumType,
-		userId: string,
-		compressedFileKey: string = ''
-	) {
-		this.status = status;
-		this.compressedFileKey = compressedFileKey;
-		this.userId = userId;
+	fileId: string;
+
+	constructor(convertionNotification: ConvertionNotificationDto) {
+		this.status = convertionNotification.status;
+		this.compressedFileKey = convertionNotification.compressedFileKey;
+		this.userId = convertionNotification.userId;
+		this.fileId = convertionNotification.fileId;
 	}
 }

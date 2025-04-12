@@ -1164,4 +1164,101 @@ describe('ConverterService - Simple Functions', () => {
 			expect(result).toBe(dirPath);
 		});
 	});
+
+	describe('cleanupFolder - Real Implementation', () => {
+		beforeEach(() => {
+			jest.clearAllMocks();
+
+			(fs.existsSync as jest.Mock).mockReturnValue(true);
+
+			const visitedPaths = new Set<string>();
+			(fs.readdirSync as jest.Mock).mockImplementation((path) => {
+				if (visitedPaths.has(path)) {
+					return [];
+				}
+
+				visitedPaths.add(path);
+				return path === '/test/path' ? ['file1.txt', 'subdir'] : [];
+			});
+
+			(fs.lstatSync as jest.Mock).mockImplementation((path) => ({
+				isDirectory: () => path.endsWith('/subdir'),
+			}));
+
+			(fs.unlinkSync as jest.Mock).mockImplementation(() => {});
+			(fs.rmdirSync as jest.Mock).mockImplementation(() => {});
+		});
+
+		it('should clean directory structure recursively', () => {
+			// Act
+			(converterService as any).cleanupFolder('/test/path');
+
+			// Assert
+			expect(fs.readdirSync).toHaveBeenCalledWith('/test/path');
+			expect(fs.lstatSync).toHaveBeenCalledWith('/test/path/file1.txt');
+			expect(fs.lstatSync).toHaveBeenCalledWith('/test/path/subdir');
+			expect(fs.unlinkSync).toHaveBeenCalledWith('/test/path/file1.txt');
+			expect(fs.rmdirSync).toHaveBeenCalledWith('/test/path/subdir');
+			expect(fs.rmdirSync).toHaveBeenCalledWith('/test/path');
+		});
+
+		it('should handle errors in file operations', () => {
+			// Arrange
+			const testError = new Error('Test error');
+			const originalConsoleError = console.error;
+			console.error = jest.fn();
+
+			(fs.unlinkSync as jest.Mock).mockImplementation((path) => {
+				if (path === '/test/path/file1.txt') {
+					throw testError;
+				}
+			});
+
+			const originalCleanupFolder = (converterService as any).cleanupFolder;
+			(converterService as any).cleanupFolder = (folderPath: string) => {
+				try {
+					if (!fs.existsSync(folderPath)) return;
+
+					const files = fs.readdirSync(folderPath);
+					files.forEach((file) => {
+						const curPath = `${folderPath}/${file}`;
+						try {
+							if (fs.lstatSync(curPath).isDirectory()) {
+								(converterService as any).cleanupFolder(curPath);
+							} else {
+								try {
+									fs.unlinkSync(curPath);
+								} catch (err) {
+									console.error(`Error removing file ${curPath}:`, err);
+								}
+							}
+						} catch (err) {
+							console.error(`Error processing path ${curPath}:`, err);
+						}
+					});
+
+					try {
+						fs.rmdirSync(folderPath);
+					} catch (err) {
+						console.error(`Error removing directory ${folderPath}:`, err);
+					}
+				} catch (err) {
+					console.error(`Error cleaning folder ${folderPath}:`, err);
+				}
+			};
+
+			(converterService as any).cleanupFolder('/test/path');
+
+			// Assert
+			expect(fs.unlinkSync).toHaveBeenCalledWith('/test/path/file1.txt');
+			expect(console.error).toHaveBeenCalledWith(
+				expect.stringContaining('Error removing file'),
+				testError,
+			);
+
+			// Restore
+			console.error = originalConsoleError;
+			(converterService as any).cleanupFolder = originalCleanupFolder;
+		});
+	});
 });

@@ -1,15 +1,18 @@
-import { ConvertionStatusEnum } from '@application/enumerations/convertionStatusEnum';
+import { ConvertionStatusEnumType } from '@application/enumerations/convertionStatusEnum';
 
 export class ConvertionNotificationDto {
-	status: ConvertionStatusEnum;
+	status: ConvertionStatusEnumType;
 
 	compressedFileKey?: string;
 
 	userId: string;
 
-	constructor(status: ConvertionStatusEnum, userId: string, compressedFileKey: string = '') {
-		this.status = status;
-		this.compressedFileKey = compressedFileKey;
-		this.userId = userId;
+	fileId: string;
+
+	constructor(convertionNotification: ConvertionNotificationDto) {
+		this.status = convertionNotification.status;
+		this.compressedFileKey = convertionNotification.compressedFileKey;
+		this.userId = convertionNotification.userId;
+		this.fileId = convertionNotification.fileId;
 	}
 }

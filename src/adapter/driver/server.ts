@@ -63,9 +63,11 @@ async function run() {
 		const simpleQueueService = new SimpleQueueService(awsSimpleQueueImpl);
 		const simpleStorageService = new SimpleStorageService(awsSimpleStorageImpl);
 		const hackatonService = new HackatonService(hackatonApiImpl);
-		const converterService = new ConverterService(simpleQueueService,
+		const converterService = new ConverterService(
+			simpleQueueService,
 			simpleStorageService,
-			hackatonService);
+			hackatonService
+		);
 		converterService.convertVideos();
 	});
 

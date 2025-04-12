@@ -16,14 +16,22 @@ export class SimpleStorageService {
 	}
 
 	async uploadCompressedFile(userId: string, filePath: any): Promise<string> {
-		logger.info(`[CONVERTER SERVICE] Uploading compressed image file ${filePath}`);
+		logger.info(
+			`[CONVERTER SERVICE] Uploading compressed image file ${filePath}`
+		);
 		const fileContent = fs.readFileSync(filePath);
-		const filePathValues = filePath.split('\\');
+		const filePathValues = filePath.split('/');
 		const compressedFileKey = filePathValues[filePathValues.length - 1];
 		await this.awsSimpleStorage.uploadFile(
 			userId,
 			compressedFileKey,
-			fileContent);
+			fileContent
+		);
 		return compressedFileKey;
+	}
+
+	async deleteFile(key: string): Promise<void> {
+		logger.info(`[CONVERTER SERVICE] Removing file from bucket ${key}`);
+		await this.awsSimpleStorage.deleteFile(key);
 	}
 }

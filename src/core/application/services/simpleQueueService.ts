@@ -13,13 +13,20 @@ export class SimpleQueueService {
 		logger.info('[CONVERTER SERVICE] Searching messages');
 		const response = await this.awsSimpleQueue.receiveMessages();
 		if (response && response.Messages) {
-			const messages = response.Messages.map((message: any) => new MessageSqsDto(message));
+			const messages = response.Messages.map(
+				(message: any) => new MessageSqsDto(message)
+			);
 			return messages;
 		}
-		throw new Error('[CONVERTER SERVICE] Error when searching messages. Null or empty response.');
+		throw new Error(
+			'[CONVERTER SERVICE] Error when searching messages. Null or empty response.'
+		);
 	}
 
-	async deleteMenssage(messageId: string, receiptHandle: string): Promise<void> {
+	async deleteMenssage(
+		messageId: string,
+		receiptHandle: string
+	): Promise<void> {
 		return this.awsSimpleQueue.deleteMessage(messageId, receiptHandle);
 	}
 }

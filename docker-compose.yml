@@ -1,26 +1,6 @@
 version: '3.8'
 
 services:
-  postgres:
-    container_name: hackaton-pg
-    image: postgres
-    ports:
-      - '5432:5432'
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: docker
-      POSTGRES_DB: hackaton
-      PGDATA: '/var/lib/postgresql/data'
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - hackaton-network
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   app:
     container_name: hackaton-converter
     build:
@@ -28,13 +8,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - '3000:3000'
-      - '5555:5555'
     env_file: .env
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: 'postgresql://postgres:docker@postgres:5432/hackaton'
       API_PORT: 3000
     networks:
       - hackaton-network

@@ -69,7 +69,7 @@ export class ConverterService {
 		return `${os.tmpdir()}/hackaton-converter`;
 	}
 
-	private async createZip(
+	protected async createZip(
 		framesFolder: string,
 		zipFilePath: string
 	): Promise<Readable> {
@@ -97,7 +97,7 @@ export class ConverterService {
 		});
 	}
 
-	private cleanupFolder = (folderPath: string) => {
+	private readonly cleanupFolder = (folderPath: string) => {
 		logger.info('[CONVERTER SERVICE] Cleaning created temp folder.');
 		if (!fs.existsSync(folderPath)) return;
 
@@ -140,12 +140,11 @@ export class ConverterService {
 			);
 
 			if (
-				!converterInfoDto ||
-				!converterInfoDto.fileName ||
-				!converterInfoDto.userId ||
-				!converterInfoDto.fileStorageKey ||
-				!converterInfoDto.fileId ||
-				!converterInfoDto.screenshotsTime
+				!converterInfoDto?.fileName ||
+				!converterInfoDto?.userId ||
+				!converterInfoDto?.fileStorageKey ||
+				!converterInfoDto?.fileId ||
+				!converterInfoDto?.screenshotsTime
 			) {
 				throw new Error(
 					'Error converting video to images. Video information is null or empty.'
@@ -238,7 +237,7 @@ export class ConverterService {
 					converterInfoDto
 				)}`
 			);
-			if (converterInfoDto && converterInfoDto.userId) {
+			if (converterInfoDto?.userId) {
 				await this.hackatonService.sendStatusErrorConvertion(
 					converterInfoDto.userId,
 					converterInfoDto.fileId

@@ -1,37 +1,24 @@
-## FIAP Tech-Challenge 8SOAT - Grupo 04 - Microsserviço de Pedidos
+## FIAP Hackaton 8SOAT - Grupo 04 - Microserviço de conversão de vídeos
 
-### Introdução
+## Objetivo
 
-Este microsserviço faz parte de um sistema de controle de pedidos para uma lanchonete em expansão. Ele é responsável exclusivamente pelo gerenciamento de pedidos, produtos e categorias, garantindo um fluxo eficiente desde a seleção dos itens até o acompanhamento da produção do pedido.
+Este microserviço tem como objetivo realizar as conversões de videos em imagens. Ele recebe as mensagens publicadas em uma fila do recurso SQS da AWS com as solicitações de conversão de vídeos publicas pelo microserviço `hackaton-api`. Depois de recebidas as mensagens, ele realiza a consulta dos vídeos no recurso AWS S3, realiza a conversão desses em imagens, cumprime em um arquivo, armazena esse no recurso AWS S3 e requisita o microserviço `hackaton-api` para notificar o status da conversão de cada vídeo.
 
-_Para visualizar a documentação geral do projeto, acesse este [repositório](https://github.com/8SOAT-G4-Tech-Challenge/tech-challenge-fiap-documentation)._
+## Requerimentos
+- Node 20 e Typescript;
+- Docker e docker compose;
+- Conta AWS Academy;
+- Acesso as configurações do repositório no Git Hub.
 
-### Objetivo
+## Execução
 
-Este serviço tem como objetivo gerenciar todas as operações relacionadas a pedidos, produtos e categorias dentro do sistema da lanchonete.
+Para realizar a execução local ou via cloud AWSm siga a seguinte documentação [Execução do serviço](./docs/RUN_CONFIGURATION.md) 
 
-A partir dos dados fornecidos, este microsserviço:
+## Arquitetura do Sistema
 
-- Gerencia as categorias de produtos: permite a criação, atualização e exclusão de categorias de produtos. As categorias são utilizadas para organizar os produtos e facilitar a navegação e o gerenciamento do catálogo.
+Para saber mais detalhes sobre a arquitetura do sistema que esse serviço faz parte acesse a documentação [Arquitetura do Sistema](./docs/SYSTEM_ARCHITECTURE.md)
 
-- Gerencia os produtos: possibilita o cadastro, atualização e remoção de produtos que podem ser comercializados nos pedidos. Cada produto possui atributos como nome, descrição, imagens, preço e categoria associada.
-
-- Gerencia os pedidos: permite a criação, atualização e exclusão de pedidos realizados pelos clientes. Um pedido contém múltiplos itens e tem status que refletem seu progresso, como "pendente", "em preparo", "pronto", entre outros.
-
-- Gera e controla a lógica de número de pedido: atribui um identificador único e legível para cada pedido, permitindo que o cliente acompanhe a produção em tempo real.
-
-- Gerencia os itens de pedido: os itens de pedido são os produtos adicionados a um pedido específico. Este serviço controla a inclusão, remoção e edição desses itens, garantindo a integridade do pedido.
-
-### Endpoints
-
-Esta API fornece documentação no padrão OpenAPI através do Swagger.
-Os endpoints disponíveis, suas descrições e dados necessários para requisição podem ser consultados e testados em `/docs`.
-
-### Desenvolvimento
-
-Para realizar o desenvolvimento de novas features, é importante realizar as configurações descritas na [Documentação de desenvolvimento](https://github.com/8SOAT-G4-Tech-Challenge/tech-challenge-fiap-documentation/blob/master/docs/DESENVOLVIMENTO.md).
-
-### Participantes
+## Participantes
 
 - Amanda Maschio - RM 357734
 - Jackson Antunes - RM357311

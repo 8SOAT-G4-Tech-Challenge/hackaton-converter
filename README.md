@@ -17,7 +17,7 @@ Para realizar a execução local ou via cloud AWSm siga a seguinte documentaçã
 
 ## Arquitetura do Sistema
 
-Para saber mais detalhes sobre a arquitetura do sistema que esse serviço faz parte acesse a documentação [Arquitetura do Sistema](./docs/SYSTEM_ARCHITECTURE.md)
+Para saber mais detalhes sobre a arquitetura do sistema que esse serviço faz parte acesse a documentação [Arquitetura do Sistema](https://github.com/8SOAT-G4-Tech-Challenge/hackaton-api/blob/master/docs/SYSTEM_ARCHITECTURE.md)
 
 ## Participantes
 

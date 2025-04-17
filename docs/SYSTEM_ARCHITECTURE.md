@@ -143,6 +143,8 @@ A aplicação está configurada com:
 
 - Utilização do SonarCloud para inspeção contínua da qualidade de código
 
+![sonarcloud](./assets/images/sonarcloud.webp)
+
 ### Testes
 
 #### hackaton-api

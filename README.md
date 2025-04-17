@@ -8,6 +8,7 @@ Este microserviço tem como objetivo realizar as conversões de videos em imagen
 - Node 20 e Typescript;
 - Docker e docker compose;
 - Conta AWS Academy;
+- AWS CLI;
 - Acesso as configurações do repositório no Git Hub.
 
 ## Execução
